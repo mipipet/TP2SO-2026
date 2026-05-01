@@ -12,15 +12,15 @@ typedef struct block {
 } block_t;
 
 // Called once at boot: tells the allocator where the heap starts and how big it is
-void   mm_init(void *heapStart, uint64_t heapSize);
+void mm_init(void *heapStart, uint64_t heapSize);
 
 // Allocates 'size' bytes and returns a pointer to the block, or NULL if out of memory
 void * mm_alloc(uint64_t size);
 
 // Frees a previously allocated block given its pointer
-void   mm_free(void *ptr);
+void mm_free(void *ptr);
 
 // Returns heap stats: total size, bytes in use, and bytes available
-void   mm_info(uint64_t *total, uint64_t *used, uint64_t *free);
+void mm_info(uint64_t *total, uint64_t *used, uint64_t *free);
 
 #endif
