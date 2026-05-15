@@ -1,6 +1,23 @@
 #include <syscalls_lib.h>
+#include <memManager.h>
 
 typedef uint64_t (*SyscallHandler)(uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8);
+
+
+// Wrappers for userland usage
+uint64_t syscall_mem_alloc(uint64_t rdi) {
+    return (uint64_t) mm_alloc(rdi);
+}
+
+uint64_t syscall_mem_free(uint64_t rdi) {
+    mm_free((void *) rdi);
+    return 0;
+}
+
+uint64_t syscall_mem_info(uint64_t rdi, uint64_t rsi, uint64_t rdx) {
+    mm_info((uint64_t *) rdi, (uint64_t *) rsi, (uint64_t *) rdx);
+    return 0;
+}
 
 static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_read,   
@@ -18,6 +35,9 @@ static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_is_key_pressed,
     (SyscallHandler)syscall_shutdown,
     (SyscallHandler)syscall_get_screen_dimensions,
+    (SyscallHandler)syscall_mem_alloc,
+    (SyscallHandler)syscall_mem_free,
+    (SyscallHandler)syscall_mem_info,
 };
 
 #define SYSCALLS_COUNT (sizeof(syscallHandlers) / sizeof(syscallHandlers[0]))
