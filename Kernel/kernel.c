@@ -6,6 +6,7 @@
 #include "include/videoDriver.h"
 #include "include/keyboardDriver.h"
 #include "include/idtLoader.h"
+#include <memManager.h>
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -63,6 +64,10 @@ void * initializeKernelBinary()
 	ncNewline();
 
 	clearBSS(&bss, &endOfKernel - &bss);
+
+	void * heapStart = (void*)((uint64_t)&endOfKernel + PageSize * 8);
+	uint64_t heapSize = (uint64_t)sampleCodeModuleAddress - (uint64_t)heapStart;
+	mm_init(heapStart, heapSize);
 
 	ncPrint("  text: 0x");
 	ncPrintHex((uint64_t)&text);
