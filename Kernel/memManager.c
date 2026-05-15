@@ -84,10 +84,19 @@ void mm_free(void *ptr){
     
     block->is_free = 1; 
 
-    // Merge with next block if it is free 
+    // Merge with next block if it is free -> here is the bug
     if(block->next && block->next->is_free){
         block->size += sizeof(block_t) + block->next->size; 
         block->next = block->next->next; 
+    }
+    // Marge also if the previous one is free
+    block_t *prev = first_block;
+    while (prev->next != NULL && prev->next != block) {
+        prev = prev->next;
+    }
+    if (prev != block && prev->is_free) {
+        prev->size += sizeof(block_t) + block->size;
+        prev->next = block->next;
     }
 }
 
