@@ -3,7 +3,7 @@
 #include "../include/shell.h"
 #include "../include/syscall.h"
 
-
+void test_mm();
 extern void _invalidOp();
 
 const TShellCmd shellCmds[] = {
@@ -15,6 +15,7 @@ const TShellCmd shellCmds[] = {
     {"font-size", fontSizeCmd, ": Cambia el tamanio de la fuente\n"},
     {"exceptions", exceptionCmd, ": Testear excepciones. Ingrese: exceptions [zero/invalidOpcode] para testear alguna operacion\n"},
     {"regs", regsCmd, ": Muestra los ultimos 18 registros de la CPU\n"},
+    {"test_mm", testMmCmd, ": Testea el memory manager\n"},
     {NULL, NULL, NULL}, 
 };
 
@@ -93,6 +94,11 @@ int fontSizeCmd(int argc, char *argv[]){
     setFontScale(size);
     clearScreen();
     printf("Tamanio de fuente cambiado a: %d\n", size);
+    return OK;
+}
+
+int testMmCmd(int argc, char *argv[]) {
+    test_mm();
     return OK;
 }
 

@@ -28,4 +28,5 @@ int CommandParse(char *commandInput);
 int exceptionCmd(int argc, char *argv[]);
 int regsCmd(int argc, char *argv[]);
 int set_some_regs();
+int testMmCmd(int argc, char *argv[]);
 #endif
