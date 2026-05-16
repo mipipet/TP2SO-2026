@@ -2,7 +2,7 @@
 #include "../include/lib.h"
 #include "../include/shell.h"
 #include "../include/syscall.h"
-#include "../include/game.h"
+
 
 extern void _invalidOp();
 
@@ -14,7 +14,6 @@ const TShellCmd shellCmds[] = {
     {"time", timeCmd, ": Muestra la hora actual\n"},
     {"font-size", fontSizeCmd, ": Cambia el tamanio de la fuente\n"},
     {"exceptions", exceptionCmd, ": Testear excepciones. Ingrese: exceptions [zero/invalidOpcode] para testear alguna operacion\n"},
-    {"jugar", gameCmd, ": Inicia el modo juego\n"},
     {"regs", regsCmd, ": Muestra los ultimos 18 registros de la CPU\n"},
     {NULL, NULL, NULL}, 
 };
@@ -157,7 +156,3 @@ int exceptionCmd(int argc, char * argv[]) {
     return OK;
 }
 
-int gameCmd(int argc, char *argv[]) {
-    game_main_screen();
-    return OK;
-}

@@ -1,4 +1,5 @@
 #include <memManager.h>
+# include <stddef.h>
 
 #define MIN_BLOCK_SIZE 8
 
