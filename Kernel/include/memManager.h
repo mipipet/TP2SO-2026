@@ -21,6 +21,6 @@ void * mm_alloc(uint64_t size);
 void mm_free(void *ptr);
 
 // Returns heap stats: total size, bytes in use, and bytes available
-void mm_info(uint64_t *total, uint64_t *used, uint64_t *free);
+void mm_info(uint64_t *total, uint64_t *used, uint64_t *free_bytes);
 
 #endif
