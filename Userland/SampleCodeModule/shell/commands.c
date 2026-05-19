@@ -3,7 +3,12 @@
 #include "../include/shell.h"
 #include "../include/syscall.h"
 
-void test_mm();
+int test_mm();
+int loop_main(int argc, char **argv);
+int ps_main(int argc, char **argv);
+int kill_main(int argc, char **argv);
+int nice_main(int argc, char **argv);
+int block_main(int argc, char **argv);
 extern void _invalidOp();
 
 const TShellCmd shellCmds[] = {
@@ -16,7 +21,12 @@ const TShellCmd shellCmds[] = {
     {"exceptions", exceptionCmd, ": Testear excepciones. Ingrese: exceptions [zero/invalidOpcode] para testear alguna operacion\n"},
     {"regs", regsCmd, ": Muestra los ultimos 18 registros de la CPU\n"},
     {"test_mm", testMmCmd, ": Testea el memory manager\n"},
-    {NULL, NULL, NULL}, 
+    {"loop",  loop_main,  ": Runs an infinite loop process\n"},
+    {"ps",    ps_main,    ": Lists all active processes\n"},
+    {"kill",  kill_main,  ": Kills a process by PID\n"},
+    {"nice",  nice_main,  ": Changes the priority of a process\n"},
+    {"block", block_main, ": Blocks a process by PID\n"},
+    {NULL, NULL, NULL},
 };
 
 int regsCmd(int argc, char *argv[]) {
