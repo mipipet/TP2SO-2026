@@ -2,6 +2,7 @@
 #define PROCESS_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 // process states
 #define PROCESS_READY    0
@@ -20,17 +21,15 @@
 
 // process control block
 typedef struct {
-    uint64_t rax, rbx, rcx, rdx;
-    uint64_t rsi, rdi, rbp, rsp;
-    uint64_t r8,  r9,  r10, r11;
-    uint64_t r12, r13, r14, r15;
-    uint64_t rip, rflags;
-    uint64_t cs,  ss;
     int      pid;
-    int      priority;
-    int      state;
+    int      parent_pid;
     char     name[32];
-    void    *stack_base;
+    int      state;
+    int      priority;
+    int      quantums_left;
+    uint64_t rsp;
+    uint8_t *stack_base;
+    int      foreground;
 } PCB;
 
 #endif
