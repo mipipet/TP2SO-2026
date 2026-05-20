@@ -38,6 +38,13 @@ static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_mem_alloc,
     (SyscallHandler)syscall_mem_free,
     (SyscallHandler)syscall_mem_info,
+    (SyscallHandler)syscall_create_process,         
+    (SyscallHandler)syscall_kill,                  
+    (SyscallHandler)syscall_getpid,                 
+    (SyscallHandler)syscall_yield,                 
+    (SyscallHandler)syscall_block,              
+    (SyscallHandler)syscall_nice,                 
+    (SyscallHandler)syscall_ps, 
 };
 
 #define SYSCALLS_COUNT (sizeof(syscallHandlers) / sizeof(syscallHandlers[0]))

@@ -2,7 +2,6 @@
 #define PROCESS_H
 
 #include <stdint.h>
-#include <stddef.h>
 
 // process states
 #define PROCESS_READY    0
@@ -19,17 +18,20 @@
 #define SYS_NICE    23
 #define SYS_PS      24
 
+#define MAX_PROCESSES  64
+#define STACK_SIZE     (4 * 1024)   // 4 KB per process
+
 // process control block
 typedef struct {
-    int      pid;
-    int      parent_pid;
-    char     name[32];
-    int      state;
-    int      priority;
-    int      quantums_left;
-    uint64_t rsp;
-    uint8_t *stack_base;
-    int      foreground;
+    int       pid;
+    int       parent_pid;       
+    char      name[32];
+    int       state;            
+    int       priority;         
+    int       quantums_left;    // countdown per turn
+    uint64_t  rsp;              
+    uint8_t  *stack_base;      
+    int       foreground;       // 1 = owns keyboard
 } PCB;
 
 #endif

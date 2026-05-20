@@ -136,3 +136,36 @@ uint64_t syscall_get_screen_dimensions(uint64_t *width, uint64_t *height) {
     *height = video_get_height();
     return 1;
 }
+
+uint64_t syscall_create_process(uint64_t entry, uint64_t name, uint64_t priority, uint64_t fg) {
+    return (uint64_t)scheduler_create((void *)entry, (const char *)name, (int)priority, (int)fg);
+}
+
+uint64_t syscall_kill(uint64_t pid) {
+    return (uint64_t)scheduler_kill((pid_t)pid);
+}
+
+uint64_t syscall_getpid(void) {
+    return (uint64_t)scheduler_getpid();
+}
+
+uint64_t syscall_yield(void) {
+    scheduler_yield();
+    return 0;
+}
+
+uint64_t syscall_block(uint64_t pid) {
+    pid_t self = scheduler_getpid();
+    if ((pid_t)pid == self || pid == 0) {
+        scheduler_block_current();
+    }
+    return 0;
+}
+
+uint64_t syscall_nice(uint64_t pid, uint64_t new_priority) {
+    return (uint64_t)scheduler_nice((pid_t)pid, (int)new_priority);
+}
+
+uint64_t syscall_ps(uint64_t buf, uint64_t max) {
+    return (uint64_t)scheduler_list((PCB *)buf, (int)max);
+}
