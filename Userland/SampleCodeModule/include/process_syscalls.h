@@ -5,12 +5,13 @@
 
 typedef void (*process_func)(int argc, char **argv);
 
-uint64_t sys_create(const char *name, process_func func, int priority, int argc, char **argv); // creates a new process
+uint64_t sys_create(process_func func, const char *name, int priority, int fg, int argc, char **argv); // creates a new process
 uint64_t sys_kill(int pid); // kills a process
 uint64_t sys_getpid(void); // returns process pid
 uint64_t sys_yield(void); // the process gives control to the CPU
 uint64_t sys_block(int pid); // blocks a process
 uint64_t sys_nice(int pid, int newPriority); // it change the priority of a process
-uint64_t sys_ps(char *buffer); // lists all processes and their status
+uint64_t sys_ps(char *buffer,uint64_t max_len); // lists all processes and their status
+uint64_t sys_unblock(int pid); // unblocks a process
 
 #endif

@@ -9,6 +9,7 @@ int ps_main(int argc, char **argv);
 int kill_main(int argc, char **argv);
 int nice_main(int argc, char **argv);
 int block_main(int argc, char **argv);
+int unblock_main(int argc, char **argv);
 extern void _invalidOp();
 
 const TShellCmd shellCmds[] = {
@@ -26,6 +27,7 @@ const TShellCmd shellCmds[] = {
     {"kill",  kill_main,  ": Kills a process by PID\n"},
     {"nice",  nice_main,  ": Changes the priority of a process\n"},
     {"block", block_main, ": Blocks a process by PID\n"},
+    {"unblock", unblock_main, ": Unlocks a process by PID\n"},
     {NULL, NULL, NULL},
 };
 

@@ -7,6 +7,7 @@
 #include "include/keyboardDriver.h"
 #include "include/idtLoader.h"
 #include <memManager.h>
+#include "include/scheduler.h"
 
 extern uint8_t text;
 extern uint8_t rodata;
@@ -90,6 +91,7 @@ void * initializeKernelBinary()
 
 int main()
 {	
+	scheduler_init();
 	load_idt();
 
 	ncPrint("[Kernel Main]");

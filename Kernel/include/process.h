@@ -17,6 +17,7 @@
 #define SYS_BLOCK   22
 #define SYS_NICE    23
 #define SYS_PS      24
+#define SYS_UNBLOCK 25
 
 #define MAX_PROCESSES  64
 #define STACK_SIZE     (4 * 1024)   // 4 KB per process

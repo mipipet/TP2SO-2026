@@ -16,6 +16,9 @@ int scheduler_kill(pid_t pid);
 // Changes current process from RUNNING to BLOCKED
 void scheduler_block_current(void);
 
+// Changes a process state from READY, BLOCKED or RUNNING to BLOCKED
+void scheduler_block(pid_t pid); 
+
 // Changes a process state from BLOCKED to READY
 void scheduler_unblock(pid_t pid);
 

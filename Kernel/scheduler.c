@@ -41,8 +41,8 @@ static void setup_initial_stack(PCB *pcb, void *entry, int argc, char **argv) {
     *(--sp) = 0;  // rcx
     *(--sp) = 0;  // rdx
     *(--sp) = 0;  // rbp
-    *(--sp) = (uint64_t)argv;  // rdi
-    *(--sp) = (uint64_t)argc;  // rsi
+    *(--sp) = (uint64_t)argc;  // rdi
+    *(--sp) = (uint64_t)argv;  // rsi
     *(--sp) = 0;  // r8
     *(--sp) = 0;  // r9
     *(--sp) = 0;  // r10
@@ -151,7 +151,7 @@ int scheduler_kill(pid_t pid){
 
     return -1; 
 }
-
+// No se usa esta funcion -> la dejo x si lo de abajo esta mal
 // Changes current process from RUNNING to BLOCKED
 void scheduler_block_current(void){
     if(current_idx < 0){
@@ -159,6 +159,16 @@ void scheduler_block_current(void){
     }
 
     process_table[current_idx].state = PROCESS_BLOCKED; 
+}
+// Ojo que hay que chequear que esto sea valido -> pregunte en el foro
+// Changes a process state from READY, BLOCKED or RUNNING to BLOCKED
+void scheduler_block(pid_t pid) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].pid == pid && process_table[i].state != PROCESS_DEAD) {
+            process_table[i].state = PROCESS_BLOCKED;
+            return;
+        }
+    }
 }
 
 // Changes a process state from BLOCKED to READY

@@ -155,13 +155,9 @@ uint64_t syscall_yield(void) {
 }
 
 uint64_t syscall_block(uint64_t pid) {
-    pid_t self = scheduler_getpid();
-    if ((pid_t)pid == self || pid == 0) {
-        scheduler_block_current();
-    }
+    scheduler_block((pid_t)pid);
     return 0;
 }
-
 uint64_t syscall_nice(uint64_t pid, uint64_t new_priority) {
     return (uint64_t)scheduler_nice((pid_t)pid, (int)new_priority);
 }

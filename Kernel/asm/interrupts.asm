@@ -214,6 +214,7 @@ _irq05Handler:
 
 ;Syscall
 _irq80Handler:
+    push rax
     push rbx
     push rcx
     push rdx
@@ -229,8 +230,9 @@ _irq80Handler:
     push r14
     push r15
 
-    mov   r9, rax
-    call  syscallDispatcher  
+    push rax
+    call syscallDispatcher
+    add rsp, 8
 
     pop   r15
     pop   r14
@@ -246,6 +248,7 @@ _irq80Handler:
     pop   rdx
     pop   rcx
     pop   rbx
+    pop   rax
 
     iretq
 

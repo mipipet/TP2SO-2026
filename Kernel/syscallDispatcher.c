@@ -1,7 +1,7 @@
 #include <syscalls_lib.h>
 #include <memManager.h>
 
-typedef uint64_t (*SyscallHandler)(uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8);
+typedef uint64_t (*SyscallHandler)(uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8, uint64_t r9);
 
 
 // Wrappers for userland usage
@@ -45,13 +45,14 @@ static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_block,              
     (SyscallHandler)syscall_nice,                 
     (SyscallHandler)syscall_ps, 
+    (SyscallHandler)syscall_unblock,
 };
 
 #define SYSCALLS_COUNT (sizeof(syscallHandlers) / sizeof(syscallHandlers[0]))
 
-uint64_t syscallDispatcher(uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8, uint64_t rax) {
+uint64_t syscallDispatcher(uint64_t rdi, uint64_t rsi, uint64_t rdx, uint64_t r10, uint64_t r8, uint64_t r9, uint64_t rax) {
     if (rax >= SYSCALLS_COUNT) {
         return 0;
     }
-    return syscallHandlers[rax](rdi, rsi, rdx, r10, r8);
+    return syscallHandlers[rax](rdi, rsi, rdx, r10, r8, r9);
 }

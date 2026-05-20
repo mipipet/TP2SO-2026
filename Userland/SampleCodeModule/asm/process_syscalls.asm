@@ -7,10 +7,12 @@ section .text
  GLOBAL sys_block
  GLOBAL sys_nice
  GLOBAL sys_ps
+ GLOBAL sys_unblock
 
  sys_create: 
     push rbp
     mov rbp, rsp
+    mov r10, rcx 
     mov rax, 18
     int 0x80
     mov rsp, rbp
@@ -66,6 +68,15 @@ sys_ps:
     push rbp
     mov rbp, rsp
     mov rax, 24
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_unblock: 
+    push rbp
+    mov rbp, rsp
+    mov rax, 25
     int 0x80
     mov rsp, rbp
     pop rbp
