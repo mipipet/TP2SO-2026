@@ -8,7 +8,7 @@
 void scheduler_init(void);
 
 // Creates a new process - state READY
-pid_t scheduler_create(void *entry, const char *name, int priority, int fg);
+pid_t scheduler_create(void *entry, const char *name, int priority, int fg, int argc, char **argv);
 
 // Kills a process
 int scheduler_kill(pid_t pid);

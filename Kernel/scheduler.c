@@ -27,7 +27,7 @@ static void copy_name(char *dst, const char *src) {
     dst[i] = '\0';
 }
 
-static void setup_initial_stack(PCB *pcb, void *entry) {
+static void setup_initial_stack(PCB *pcb, void *entry, int argc, char **argv) {
     uint64_t *sp = (uint64_t *)((uint8_t *)pcb->stack_base + STACK_SIZE);
 
     *(--sp) = 0x00;                    // SS
@@ -41,8 +41,8 @@ static void setup_initial_stack(PCB *pcb, void *entry) {
     *(--sp) = 0;  // rcx
     *(--sp) = 0;  // rdx
     *(--sp) = 0;  // rbp
-    *(--sp)= 0;  // rdi
-    *(--sp) = 0;  // rsi
+    *(--sp) = (uint64_t)argv;  // rdi
+    *(--sp) = (uint64_t)argc;  // rsi
     *(--sp) = 0;  // r8
     *(--sp) = 0;  // r9
     *(--sp) = 0;  // r10
@@ -94,12 +94,11 @@ void scheduler_init(void){
     copy_name(idle->name, "idle");
     process_count = 1; 
 
-    setup_initial_stack(idle, idle_process);
+    setup_initial_stack(idle, idle_process, 0, NULL);
 }
 
 // Creates a new process - state READY
-pid_t scheduler_create(void *entry, const char *name, int priority, int fg){
-    if(priority <= 0 || priority > 5){
+pid_t scheduler_create(void *entry, const char *name, int priority, int fg, int argc, char **argv){    if(priority <= 0 || priority > 5){
         priority = 3; // default
     }
 
@@ -122,7 +121,7 @@ pid_t scheduler_create(void *entry, const char *name, int priority, int fg){
     p->stack_base = stack; 
     p->foreground = fg; 
     copy_name(p->name, name); 
-    setup_initial_stack(p, entry);
+    setup_initial_stack(p, entry, argc, argv);
 
     process_count++;
     return p->pid;    
