@@ -46,6 +46,10 @@ static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_nice,                 
     (SyscallHandler)syscall_ps, 
     (SyscallHandler)syscall_unblock,
+    (SyscallHandler)syscall_sem_open, 
+    (SyscallHandler)syscall_sem_wait, 
+    (SyscallHandler)syscall_sem_post, 
+    (SyscallHandler)syscall_sem_close,
 };
 
 #define SYSCALLS_COUNT (sizeof(syscallHandlers) / sizeof(syscallHandlers[0]))
