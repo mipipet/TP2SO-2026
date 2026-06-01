@@ -8,6 +8,7 @@
 #include <time.h>
 #include "keystate.h"
 #include "include/semaphore.h"
+#include "include/process.h"
 
 #define STDIN 0
 #define STDOUT 1
@@ -22,34 +23,61 @@ uint64_t syscall_get_regs(uint64_t *dest) {
 }
 
 uint64_t syscall_read(int fd, char *buffer, int count) {
-    if (fd != STDIN || buffer == NULL || count <= 0){
+    if (buffer == NULL || count <= 0 || fd < 0 || fd >= MAX_FDS){
         return 0;
     }
 
-    uint64_t read = 0;
-    char c;
+    PCB *pcb = scheduler_current();
+    FileDescriptor *fdes = &pcb->fds[fd]; 
 
-    while (read < count) {
-    c = keyboard_read_getchar();
-    if (c == 0) break;
-    buffer[read++] = c;
-    if (c == '\n') break; 
-}
+    if(fdes->type == FD_PIPE_READ){
+        return pipe_read(fdes->pipe_id, buffer, count);
+    }
 
-    return read;
+    if(fdes->type == FD_STDIN){
+        uint64_t read = 0;
+        char c;
+
+        while (read < count) {
+            c = keyboard_read_getchar();
+            if (c == 0){
+                break;
+            }
+
+            buffer[read++] = c;
+            if (c == '\n'){
+                break;
+            } 
+        }
+
+        return read;
+    }
+
+    return 0;
 }
 
 
 uint64_t syscall_write(int fd, const char * buffer, int count) {
-    if (fd != STDOUT) {
+    if (buffer == NULL || count <= 0 || fd < 0 || fd >= MAX_FDS) {
         return 0;
     }
     
-    for (int i = 0; i < count; i++) {
-        video_putChar(buffer[i], FOREGROUND_COLOR, BACKGROUND_COLOR);
+    PCB *pcb = scheduler_current(); 
+    FileDescriptor *fdes = &pcb->fds[fd];
+
+    if(fdes->type == FD_PIPE_WRITE){
+        return pipe_write(fdes->pipe_id, buffer, count);
+    }
+
+    if(fdes->type == FD_STDOUT){
+        for (int i = 0; i < count; i++) {
+            video_putChar(buffer[i], FOREGROUND_COLOR, BACKGROUND_COLOR);
+        }
+        
+        return count;
     }
     
-    return count;
+    return 0;
 }
 
 
@@ -138,6 +166,8 @@ uint64_t syscall_get_screen_dimensions(uint64_t *width, uint64_t *height) {
     return 1;
 }
 
+// SCHEDULER
+
 uint64_t syscall_create_process(uint64_t entry, uint64_t name, uint64_t priority, uint64_t fg, uint64_t argc, uint64_t argv) {
     return (uint64_t)scheduler_create((void *)entry, (const char *)name, (int)priority, (int)fg, (int)argc, (char **)argv);
 }
@@ -188,7 +218,7 @@ uint64_t syscall_unblock(uint64_t pid) {
     return 0;
 }
 
-//SEMAPHORES
+// SEMAPHORES
 
 uint64_t syscall_sem_open(uint64_t name, uint64_t initial_value) {
     return (uint64_t) sem_open((const char *)name, (int)initial_value);

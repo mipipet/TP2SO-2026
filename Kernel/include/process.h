@@ -26,6 +26,21 @@
 #define MAX_PROCESSES  64
 #define STACK_SIZE     (4 * 1024)   // 4 KB per process
 
+#define MAX_FDS 8
+
+typedef enum {
+    FD_NONE,
+    FD_STDIN,
+    FD_STDOUT,
+    FD_PIPE_READ,
+    FD_PIPE_WRITE
+} FDType;
+
+typedef struct {
+    FDType type;
+    int pipe_id;   // index pipes table
+} FileDescriptor;
+
 // process control block
 typedef struct {
     int       pid;
@@ -37,6 +52,7 @@ typedef struct {
     uint64_t  rsp;              
     uint8_t  *stack_base;      
     int       foreground;       // 1 = owns keyboard
+    FileDescriptor fds[MAX_FDS];
 } PCB;
 
 #endif
