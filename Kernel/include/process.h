@@ -18,6 +18,10 @@
 #define SYS_NICE    23
 #define SYS_PS      24
 #define SYS_UNBLOCK 25
+#define SYS_SEM_OPEN  26
+#define SYS_SEM_WAIT  27
+#define SYS_SEM_POST  28
+#define SYS_SEM_CLOSE 29
 
 #define MAX_PROCESSES  64
 #define STACK_SIZE     (4 * 1024)   // 4 KB per process

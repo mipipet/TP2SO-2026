@@ -7,6 +7,7 @@
 #include <interrupts.h>
 #include <time.h>
 #include "keystate.h"
+#include "include/semaphore.h"
 
 #define STDIN 0
 #define STDOUT 1
@@ -185,4 +186,22 @@ uint64_t syscall_ps(uint64_t buf, uint64_t max_len) {
 uint64_t syscall_unblock(uint64_t pid) {
     scheduler_unblock((pid_t)pid);
     return 0;
+}
+
+//SEMAPHORES
+
+uint64_t syscall_sem_open(uint64_t name, uint64_t initial_value) {
+    return (uint64_t) sem_open((const char *)name, (int)initial_value);
+}
+
+uint64_t syscall_sem_wait(uint64_t sem_id) {
+    return (uint64_t) sem_wait((int)sem_id);
+}
+
+uint64_t syscall_sem_post(uint64_t sem_id) {
+    return (uint64_t) sem_post((int)sem_id);
+}
+
+uint64_t syscall_sem_close(uint64_t sem_id) {
+    return (uint64_t) sem_close((int)sem_id);
 }
