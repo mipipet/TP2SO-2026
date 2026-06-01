@@ -1,4 +1,5 @@
 #include "include/pipe.h"
+#include "include/semaphore.h"
 #include "include/scheduler.h"
 #include <lib.h>
 

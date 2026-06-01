@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "../include/process_syscalls.h"
 #include "../include/lib.h"
 
 // Random

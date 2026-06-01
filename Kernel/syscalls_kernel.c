@@ -8,6 +8,7 @@
 #include <time.h>
 #include "keystate.h"
 #include "include/semaphore.h"
+#include "include/pipe.h"
 #include "include/process.h"
 
 #define STDIN 0

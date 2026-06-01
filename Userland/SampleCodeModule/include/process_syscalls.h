@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef void (*process_func)(int argc, char **argv);
+typedef uint64_t (*process_func)(uint64_t argc, char **argv);
 
 uint64_t sys_create(process_func func, const char *name, int priority, int fg, int argc, char **argv); // creates a new process
 uint64_t sys_kill(int pid); // kills a process

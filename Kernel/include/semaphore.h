@@ -4,6 +4,8 @@
 #define MAX_WAITING 64
 #define NAME_LEN 32
 
+typedef int sem_t;
+
 typedef struct {
     char name[NAME_LEN];       
     int  value;           //counter
