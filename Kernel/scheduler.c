@@ -81,6 +81,9 @@ static int find_next_ready(void) {
 // Initializes scheduler
 void scheduler_init(void){
     memset(process_table, 0, sizeof(process_table));
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        process_table[i].state = PROCESS_DEAD;
+    }
 
     PCB * idle = &process_table[0]; 
     idle->pid = 0; 
