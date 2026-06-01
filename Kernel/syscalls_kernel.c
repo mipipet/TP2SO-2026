@@ -194,23 +194,9 @@ uint64_t syscall_nice(uint64_t pid, uint64_t new_priority) {
 }
 
 uint64_t syscall_ps(uint64_t buf, uint64_t max_len) {
-    PCB table[MAX_PROCESSES];
-    int count = scheduler_list(table, MAX_PROCESSES);
-    
-    char *out = (char *)buf;
-    int written = 0;
-    int rem = (int)max_len;
-    
-    for (int i = 0; i < count && rem > 1; i++) {
-        int n = snprintf(out + written, rem,
-            "%-16s PID=%-4d PRI=%-2d FG=%-2d RSP=0x%lx BASE=0x%lx STATE=%d\n",
-            table[i].name, table[i].pid, table[i].priority,
-            table[i].foreground, table[i].rsp,
-            (uint64_t)table[i].stack_base, table[i].state);
-        written += n;
-        rem -= n;
-    }
-    return (uint64_t)written;
+    (void)buf;
+    (void)max_len;
+    return 0;
 }
 
 uint64_t syscall_unblock(uint64_t pid) {

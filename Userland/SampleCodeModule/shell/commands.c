@@ -3,6 +3,7 @@
 #include "../include/shell.h"
 #include "../include/syscall.h"
 
+uint64_t test_sync(uint64_t argc, char *argv[]);
 int test_mm();
 int loop_main(int argc, char **argv);
 int ps_main(int argc, char **argv);

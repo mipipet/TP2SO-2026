@@ -31,11 +31,7 @@ void clearBSS(void * bssAddress, uint64_t bssSize)
 
 void * getStackBase()
 {
-	return (void*)(
-		(uint64_t)&endOfKernel
-		+ PageSize * 8				
-		- sizeof(uint64_t)			
-	);
+    return (void*)((uint64_t)&endOfKernel + PageSize); 
 }
 
 void * initializeKernelBinary()

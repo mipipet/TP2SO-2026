@@ -127,7 +127,7 @@ pid_t scheduler_create(void *entry, const char *name, int priority, int fg, int 
     p->fds[0].type = FD_STDIN; 
     p->fds[0].pipe_id = -1; 
     p->fds[1].type = FD_STDOUT; 
-    p->fds[1].pipe_ide = -1; 
+    p->fds[1].pipe_id = -1; 
 
     for(int i = 2 ; i< MAX_FDS ; i++){
         p->fds[i].type = FD_NONE; 
