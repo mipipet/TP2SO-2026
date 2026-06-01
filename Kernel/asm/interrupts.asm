@@ -22,6 +22,7 @@ EXTERN exceptionDispatcher
 EXTERN syscallDispatcher
 EXTERN getStackBase
 EXTERN scheduler_tick
+EXTERN timer_handler
 
 SECTION .text
 
@@ -107,17 +108,19 @@ picSlaveMask:
 
 ;8254 Timer (Timer Tick)
 _irq00Handler:
-    pushState               
- 
-    mov rdi, rsp           
-    call scheduler_tick  ; rax = rsp new process   
-    mov rsp, rax  ; switch to new process stack          
- 
+    pushState
+
+    call timer_handler      ; increment ticks counter
+
+    mov rdi, rsp
+    call scheduler_tick  ; rax = rsp new process
+    mov rsp, rax  ; switch to new process stack
+
     mov al, 20h
     out 20h, al
- 
-    popState               
-    iretq                
+
+    popState
+    iretq
 
 ;Keyboard
 _irq01Handler:
