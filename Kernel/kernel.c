@@ -87,26 +87,31 @@ void * initializeKernelBinary()
 
 int main()
 {	
-	scheduler_init();
-	load_idt();
+    scheduler_init();
 
-	ncPrint("[Kernel Main]");
-	ncNewline();
-	ncPrint("  Sample code module at 0x");
-	ncPrintHex((uint64_t)sampleCodeModuleAddress);
-	ncNewline();
-	ncPrint("  Calling the sample code module returned: ");
-	ncPrintHex(((EntryPoint)sampleCodeModuleAddress)());
-	ncNewline();
-	ncNewline();
+    ncPrint("[Kernel Main]");
+    ncNewline();
+    ncPrint("  Sample code module at 0x");
+    ncPrintHex((uint64_t)sampleCodeModuleAddress);
+    ncNewline();
+    ncPrint("  Sample data module at 0x");
+    ncPrintHex((uint64_t)sampleDataModuleAddress);
+    ncNewline();
 
-	ncPrint("  Sample data module at 0x");
-	ncPrintHex((uint64_t)sampleDataModuleAddress);
-	ncNewline();
-	ncPrint("  Sample data module contents: ");
-	ncPrint((char*)sampleDataModuleAddress);
-	ncNewline();
+    load_idt(); 
 
-	ncPrint("[Finished]");
-	return 0;
+    scheduler_create(
+        (void*)sampleCodeModuleAddress,
+        "shell",
+        3,    // priority
+        1,    // foreground
+        0,    // argc
+        NULL  // argv
+    );
+
+    while(1) {
+        _hlt();
+    }
+
+    return 0;
 }

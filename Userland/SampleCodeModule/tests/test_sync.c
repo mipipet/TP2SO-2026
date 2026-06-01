@@ -17,27 +17,27 @@ void slowInc(int64_t *p, int64_t inc) {
   *p = aux;
 }
 
-uint64_t process_inc(uint64_t argc, char *argv[]) {
+void process_inc(int argc, char **argv){
   uint64_t n;
   int8_t inc;
   int8_t use_sem;
   sem_t sem_id = -1;
 
   if (argc != 3)
-    return -1;
+    return ;
 
   if ((n = satoi(argv[0])) <= 0)
-    return -1;
+    return ;
   if ((inc = satoi(argv[1])) == 0)
-    return -1;
+    return ;
   if ((use_sem = satoi(argv[2])) < 0)
-    return -1;
+    return ;
 
   if (use_sem) {
     sem_id = sys_sem_open(SEM_ID, 1);
     if (sem_id == -1) {
       printf("test_sync: ERROR opening semaphore\n");
-      return -1;
+      return ;
     }
   }
 
@@ -52,7 +52,6 @@ uint64_t process_inc(uint64_t argc, char *argv[]) {
   if (use_sem)
     sys_sem_close(sem_id);
 
-  return 0;
 }
 
 uint64_t test_sync(uint64_t argc, char *argv[]) {

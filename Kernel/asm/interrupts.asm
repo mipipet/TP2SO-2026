@@ -230,9 +230,11 @@ _irq80Handler:
     push r14
     push r15
 
+    mov rcx, r10
     push rax
     call syscallDispatcher
     add rsp, 8
+    mov [rsp + 14*8], rax
 
     pop   r15
     pop   r14
@@ -248,7 +250,7 @@ _irq80Handler:
     pop   rdx
     pop   rcx
     pop   rbx
-    pop   rax
+    pop   rax 
 
     iretq
 
