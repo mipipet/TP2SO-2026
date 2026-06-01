@@ -235,3 +235,23 @@ uint64_t syscall_sem_post(uint64_t sem_id) {
 uint64_t syscall_sem_close(uint64_t sem_id) {
     return (uint64_t) sem_close((int)sem_id);
 }
+
+// PIPES
+
+uint64_t syscall_pipe_open(void) {
+    return pipe_open();
+}
+
+uint64_t syscall_pipe_close(uint64_t pipe_id, uint64_t is_write) {
+    return pipe_close((int)pipe_id, (int)is_write);
+}
+
+uint64_t syscall_pipe_set_fd(uint64_t pid, uint64_t fd, uint64_t pipe_id, uint64_t is_write) {
+    PCB *pcb = get_process_by_pid((int)pid);
+    if (pcb == NULL) return -1;
+    if (fd >= MAX_FDS) return -1;
+
+    pcb->fds[fd].type    = is_write ? FD_PIPE_WRITE : FD_PIPE_READ;
+    pcb->fds[fd].pipe_id = (int)pipe_id;
+    return 0;
+}

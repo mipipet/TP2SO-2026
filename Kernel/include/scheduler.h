@@ -40,4 +40,7 @@ int scheduler_list(PCB *out_buf, int max);
 // Forces current process to yield
 void scheduler_yield(void);
 
+// Returns current process's PCB
+PCB *get_process_by_pid(int pid)
+
 #endif 

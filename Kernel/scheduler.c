@@ -276,3 +276,12 @@ void scheduler_yield(void){
 
     process_table[current_idx].quantums_left = 0; 
 }
+
+// Returns current process's PCB
+PCB *get_process_by_pid(int pid) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state != PROCESS_DEAD && process_table[i].pid == pid)
+            return &process_table[i];
+    }
+    return NULL;
+}

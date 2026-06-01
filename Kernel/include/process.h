@@ -10,18 +10,21 @@
 #define PROCESS_DEAD     3
 
 // syscall numbers for process management
-#define SYS_CREATE  18
-#define SYS_KILL    19
-#define SYS_GETPID  20
-#define SYS_YIELD   21
-#define SYS_BLOCK   22
-#define SYS_NICE    23
-#define SYS_PS      24
+#define SYS_CREATE 18
+#define SYS_KILL 19
+#define SYS_GETPID 20
+#define SYS_YIELD 21
+#define SYS_BLOCK 22
+#define SYS_NICE 23
+#define SYS_PS 24
 #define SYS_UNBLOCK 25
-#define SYS_SEM_OPEN  26
-#define SYS_SEM_WAIT  27
-#define SYS_SEM_POST  28
+#define SYS_SEM_OPEN 26
+#define SYS_SEM_WAIT 27
+#define SYS_SEM_POST 28
 #define SYS_SEM_CLOSE 29
+#define SYS_PIPE_OPEN 30
+#define SYS_PIPE_CLOSE 31
+#define SYS_PIPE_SET_FD 32
 
 #define MAX_PROCESSES  64
 #define STACK_SIZE     (4 * 1024)   // 4 KB per process
