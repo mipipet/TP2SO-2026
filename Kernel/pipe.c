@@ -30,6 +30,7 @@ int pipe_open(void){
             pipe_table[i].readers = 1;
             pipe_table[i].writers = 1;
             pipe_table[i].active = 1;
+            pipe_init_sems(i);
 
             return i;
         }
