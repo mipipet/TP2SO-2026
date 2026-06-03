@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <interrupts.h>
 #include <time.h>
+#include <scheduler.h>
 #include "keystate.h"
 #include "include/semaphore.h"
 #include "include/pipe.h"
@@ -15,6 +16,52 @@
 #define STDOUT 1
 
 extern uint64_t * _getSnapshot();
+
+static void append_char(char **out, int *rem, int *written, char c) {
+    if (*rem <= 1) {
+        return;
+    }
+    **out = c;
+    (*out)++;
+    (*rem)--;
+    (*written)++;
+}
+
+static void append_str(char **out, int *rem, int *written, const char *str) {
+    while (str != NULL && *str != '\0') {
+        append_char(out, rem, written, *str);
+        str++;
+    }
+}
+
+static void append_uint(char **out, int *rem, int *written, uint64_t value, uint64_t base) {
+    char buffer[32];
+    int idx = 0;
+
+    if (value == 0) {
+        append_char(out, rem, written, '0');
+        return;
+    }
+
+    while (value > 0 && idx < (int)sizeof(buffer)) {
+        uint64_t digit = value % base;
+        buffer[idx++] = digit < 10 ? '0' + digit : 'a' + digit - 10;
+        value /= base;
+    }
+
+    while (idx > 0) {
+        append_char(out, rem, written, buffer[--idx]);
+    }
+}
+
+static void append_int(char **out, int *rem, int *written, int value) {
+    if (value < 0) {
+        append_char(out, rem, written, '-');
+        append_uint(out, rem, written, (uint64_t)(-value), 10);
+        return;
+    }
+    append_uint(out, rem, written, (uint64_t)value, 10);
+}
 
 uint64_t syscall_get_regs(uint64_t *dest) {
     const uint64_t *src = _getSnapshot();
@@ -195,9 +242,33 @@ uint64_t syscall_nice(uint64_t pid, uint64_t new_priority) {
 }
 
 uint64_t syscall_ps(uint64_t buf, uint64_t max_len) {
-    (void)buf;
-    (void)max_len;
-    return 0;
+    PCB table[MAX_PROCESSES];
+    int count = scheduler_list(table, MAX_PROCESSES);
+
+    char *out = (char *)buf;
+    int written = 0;
+    int rem = (int)max_len;
+
+    for (int i = 0; i < count && rem > 1; i++) {
+        append_str(&out, &rem, &written, table[i].name);
+        append_str(&out, &rem, &written, " PID=");
+        append_int(&out, &rem, &written, table[i].pid);
+        append_str(&out, &rem, &written, " PRI=");
+        append_int(&out, &rem, &written, table[i].priority);
+        append_str(&out, &rem, &written, " FG=");
+        append_int(&out, &rem, &written, table[i].foreground);
+        append_str(&out, &rem, &written, " RSP=0x");
+        append_uint(&out, &rem, &written, table[i].rsp, 16);
+        append_str(&out, &rem, &written, " BASE=0x");
+        append_uint(&out, &rem, &written, (uint64_t)table[i].stack_base, 16);
+        append_str(&out, &rem, &written, " STATE=");
+        append_int(&out, &rem, &written, table[i].state);
+        append_char(&out, &rem, &written, '\n');
+    }
+    if (rem > 0) {
+        *out = '\0';
+    }
+    return (uint64_t)written;
 }
 
 uint64_t syscall_unblock(uint64_t pid) {

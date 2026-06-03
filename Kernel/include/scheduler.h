@@ -4,8 +4,6 @@
 #include "process.h"
 #include <stdint.h>
 
-typedef int pid_t;
-
 // Initializes scheduler
 void scheduler_init(void);
 
@@ -45,4 +43,4 @@ void scheduler_yield(void);
 // Returns current process's PCB
 PCB *get_process_by_pid(int pid);
 
-#endif 
+#endif

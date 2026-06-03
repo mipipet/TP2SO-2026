@@ -29,6 +29,8 @@
 #define MAX_PROCESSES  64
 #define STACK_SIZE     (4 * 1024)   // 4 KB per process
 
+typedef int pid_t;
+
 #define MAX_FDS 8
 
 typedef enum {

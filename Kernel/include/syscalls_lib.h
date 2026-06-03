@@ -20,10 +20,7 @@ uint64_t syscall_video_putCharXY(uint64_t c, uint64_t x, uint64_t y, uint64_t fg
 uint64_t syscall_is_key_pressed(uint64_t scancode);
 uint64_t syscall_shutdown(uint64_t unused1, uint64_t unused2, uint64_t unused3, uint64_t unused4, uint64_t unused5);
 uint64_t syscall_get_screen_dimensions(uint64_t *width, uint64_t *height);
-extern void outw(uint16_t port, uint16_t value);
-uint64_t syscall_create_process(uint64_t entry, uint64_t name, uint64_t priority,
-                                uint64_t fg, uint64_t argc, uint64_t argv);
-
+uint64_t syscall_create_process(uint64_t entry, uint64_t name, uint64_t priority, uint64_t fg, uint64_t argc, uint64_t argv);
 uint64_t syscall_kill(uint64_t pid);
 uint64_t syscall_getpid(void);
 uint64_t syscall_yield(void);
@@ -31,6 +28,7 @@ uint64_t syscall_block(uint64_t pid);
 uint64_t syscall_nice(uint64_t pid, uint64_t new_priority);
 uint64_t syscall_ps(uint64_t buf, uint64_t max_len);
 uint64_t syscall_unblock(uint64_t pid);
+extern void outw(uint16_t port, uint16_t value);
 
 uint64_t syscall_sem_open(uint64_t name, uint64_t initial_value);
 uint64_t syscall_sem_wait(uint64_t sem_id);
