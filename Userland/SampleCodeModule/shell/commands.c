@@ -11,6 +11,8 @@ int kill_main(int argc, char **argv);
 int nice_main(int argc, char **argv);
 int block_main(int argc, char **argv);
 int unblock_main(int argc, char **argv);
+int mem_main(int argc, char **argv);
+int mvar_main(int argc, char **argv);
 extern void _invalidOp();
 
 const TShellCmd shellCmds[] = {
@@ -30,6 +32,8 @@ const TShellCmd shellCmds[] = {
     {"block", block_main, ": Bloquea un proceso por PID\n"},
     {"unblock", unblock_main, ": Desbloquea un proceso PID\n"},
     {"test_sync", (cmd_fn)test_sync, ": Testea los semaforos \n"},
+    {"mem", mem_main, ": Muestra el estado de la memoria\n"},
+    {"mvar", mvar_main, ": Multiples lectores/escritores sobre variable compartida. Uso: mvar <escritores> <lectores>\n"},
     {NULL, NULL, NULL},
 };
 
