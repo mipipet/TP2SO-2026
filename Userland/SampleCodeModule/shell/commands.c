@@ -2,6 +2,7 @@
 #include "../include/lib.h"
 #include "../include/shell.h"
 #include "../include/syscall.h"
+#include "../include/process_syscalls.h"
 
 uint64_t test_sync(uint64_t argc, char *argv[]);
 int test_mm();
@@ -12,8 +13,21 @@ int nice_main(int argc, char **argv);
 int block_main(int argc, char **argv);
 int unblock_main(int argc, char **argv);
 int mem_main(int argc, char **argv);
-int mvar_main(int argc, char **argv);
+int cat_main(int argc, char **argv);
+int wc_main(int argc, char **argv);
+int filter_main(int argc, char **argv);
 extern void _invalidOp();
+
+typedef struct {
+    int argc;
+    char **argv;
+    int stdin_pipe;
+    int stdout_pipe;
+} TCommandLaunch;
+
+static int execute_pipeline(char *commandInput);
+static char *trim_spaces(char *text);
+static int command_exists(const char *name);
 
 const TShellCmd shellCmds[] = {
     {"help", helpCmd, ": Muestra los comandos disponibles\n"},
@@ -31,11 +45,61 @@ const TShellCmd shellCmds[] = {
     {"nice",  nice_main,  ": Cambia la prioridad de un proceso\n"},
     {"block", block_main, ": Bloquea un proceso por PID\n"},
     {"unblock", unblock_main, ": Desbloquea un proceso PID\n"},
+    {"cat", cat_main, ": Imprime stdin tal como lo recibe\n"},
+    {"wc", wc_main, ": Cuenta lineas recibidas por stdin\n"},
+    {"filter", filter_main, ": Filtra vocales del stdin\n"},
     {"test_sync", (cmd_fn)test_sync, ": Testea los semaforos \n"},
     {"mem", mem_main, ": Muestra el estado de la memoria\n"},
-    {"mvar", mvar_main, ": Multiples lectores/escritores sobre variable compartida. Uso: mvar <escritores> <lectores>\n"},
     {NULL, NULL, NULL},
 };
+
+static int runs_in_shell(const char *name) {
+    return strcmp(name, "help") == 0 ||
+           strcmp(name, "exit") == 0 ||
+           strcmp(name, "set-user") == 0 ||
+           strcmp(name, "clear") == 0 ||
+           strcmp(name, "time") == 0 ||
+           strcmp(name, "font-size") == 0 ||
+           strcmp(name, "exceptions") == 0 ||
+           strcmp(name, "regs") == 0;
+}
+
+static uint64_t command_process_entry(uint64_t argc, char **argv) {
+    if (argc == 0 || argv == NULL || argv[0] == NULL) {
+        sys_exit(CMD_ERROR);
+        return CMD_ERROR;
+    }
+
+    for (int i = 0; shellCmds[i].name; i++) {
+        if (strcmp(argv[0], shellCmds[i].name) == 0) {
+            int status = shellCmds[i].function((int)argc, argv);
+            sys_exit(status);
+            return status;
+        }
+    }
+
+    sys_exit(ERROR);
+    return ERROR;
+}
+
+static uint64_t command_launch_entry(uint64_t unused, char **raw_context) {
+    TCommandLaunch *ctx = (TCommandLaunch *)raw_context;
+    int pid = sys_getpid();
+
+    if (ctx->stdin_pipe >= 0 &&
+        sys_pipe_set_fd(pid, STDIN, ctx->stdin_pipe, 0) < 0) {
+        sys_exit(CMD_ERROR);
+        return CMD_ERROR;
+    }
+
+    if (ctx->stdout_pipe >= 0 &&
+        sys_pipe_set_fd(pid, STDOUT, ctx->stdout_pipe, 1) < 0) {
+        sys_exit(CMD_ERROR);
+        return CMD_ERROR;
+    }
+
+    return command_process_entry((uint64_t)ctx->argc, ctx->argv);
+}
 
 int regsCmd(int argc, char *argv[]) {
     uint64_t snap[18];
@@ -123,20 +187,151 @@ int testMmCmd(int argc, char *argv[]) {
 int CommandParse(char *commandInput){
     if(commandInput == NULL)
         return ERROR;
+
+    for (int i = 0; commandInput[i] != '\0'; i++) {
+        if (commandInput[i] == '|') {
+            return execute_pipeline(commandInput);
+        }
+    }
     
-    char *args[MAX_ARGS];
+    char *args[MAX_ARGS + 1];
     int argc = fillCommandAndArgs(args, commandInput);
 
     if(argc == 0)
         return ERROR;
 
+    int foreground = 1;
+    if (argc > 1 && strcmp(args[argc - 1], "&") == 0) {
+        foreground = 0;
+        args[--argc] = NULL;
+    }
+
     for(int i = 0; shellCmds[i].name; i++) {
         if(strcmp(args[0], shellCmds[i].name) == 0) {
-            return shellCmds[i].function(argc, args);
+            if (runs_in_shell(args[0])) {
+                return shellCmds[i].function(argc, args);
+            }
+
+            int pid = sys_create((process_func)command_process_entry,
+                                 shellCmds[i].name, 3, foreground,
+                                 argc, args);
+            if (pid < 0) {
+                printf("Error: no se pudo crear el proceso\n");
+                return CMD_ERROR;
+            }
+
+            if (foreground) {
+                sys_wait(pid);
+            } else {
+                printf("[%d]\n", pid);
+            }
+
+            return OK;
         }
     }
 
     return ERROR;
+}
+
+static int execute_pipeline(char *commandInput) {
+    char *pipe_pos = NULL;
+
+    for (int i = 0; commandInput[i] != '\0'; i++) {
+        if (commandInput[i] == '|') {
+            if (pipe_pos != NULL) {
+                printf("Error: solo se soporta un pipe\n");
+                return CMD_ERROR;
+            }
+            pipe_pos = &commandInput[i];
+        }
+    }
+
+    if (pipe_pos == NULL) {
+        return ERROR;
+    }
+
+    *pipe_pos = '\0';
+    char *left = trim_spaces(commandInput);
+    char *right = trim_spaces(pipe_pos + 1);
+
+    if (left[0] == '\0' || right[0] == '\0') {
+        printf("Error: pipe incompleto\n");
+        return CMD_ERROR;
+    }
+
+    char *left_args[MAX_ARGS + 1];
+    char *right_args[MAX_ARGS + 1];
+    int left_argc = fillCommandAndArgs(left_args, left);
+    int right_argc = fillCommandAndArgs(right_args, right);
+
+    if (left_argc == 0 || right_argc == 0) {
+        printf("Error: pipe incompleto\n");
+        return CMD_ERROR;
+    }
+
+    if (strcmp(right_args[right_argc - 1], "&") == 0) {
+        printf("Error: pipes en background no soportados\n");
+        return CMD_ERROR;
+    }
+
+    if (!command_exists(left_args[0]) || !command_exists(right_args[0])) {
+        return ERROR;
+    }
+
+    int pipe_id = sys_pipe_open();
+    if (pipe_id < 0) {
+        printf("Error: no se pudo crear el pipe\n");
+        return CMD_ERROR;
+    }
+
+    TCommandLaunch left_ctx = {left_argc, left_args, -1, pipe_id};
+    TCommandLaunch right_ctx = {right_argc, right_args, pipe_id, -1};
+
+    int left_pid = sys_create((process_func)command_launch_entry,
+                              left_args[0], 3, 1, 0, (char **)&left_ctx);
+    if (left_pid < 0) {
+        sys_pipe_close(pipe_id, 0);
+        sys_pipe_close(pipe_id, 1);
+        printf("Error: no se pudo crear el proceso izquierdo\n");
+        return CMD_ERROR;
+    }
+
+    int right_pid = sys_create((process_func)command_launch_entry,
+                               right_args[0], 3, 1, 0, (char **)&right_ctx);
+    if (right_pid < 0) {
+        sys_kill(left_pid);
+        sys_pipe_close(pipe_id, 0);
+        sys_pipe_close(pipe_id, 1);
+        printf("Error: no se pudo crear el proceso derecho\n");
+        return CMD_ERROR;
+    }
+
+    sys_wait(left_pid);
+    sys_wait(right_pid);
+    return OK;
+}
+
+static char *trim_spaces(char *text) {
+    while (*text == ' ' || *text == '\t') {
+        text++;
+    }
+
+    int len = strlen(text);
+    while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t')) {
+        text[--len] = '\0';
+    }
+
+    return text;
+}
+
+static int command_exists(const char *name) {
+    for (int i = 0; shellCmds[i].name; i++) {
+        if (strcmp(name, shellCmds[i].name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 int fillCommandAndArgs(char *args[], char *input) {
@@ -153,6 +348,7 @@ int fillCommandAndArgs(char *args[], char *input) {
         }
     }
 
+    args[argc] = NULL;
     return argc;
 }
 
@@ -179,4 +375,3 @@ int exceptionCmd(int argc, char * argv[]) {
 
     return OK;
 }
-
