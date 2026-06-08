@@ -10,6 +10,8 @@
 #include "keystate.h"
 #include "include/semaphore.h"
 #include "include/pipe.h"
+
+#define EOF_CHAR 0x04
 #include "include/process.h"
 
 #define STDIN 0
@@ -82,18 +84,22 @@ uint64_t syscall_read(int fd, char *buffer, int count) {
         return pipe_read(fdes->pipe_id, buffer, count);
     }
 
-    if(fdes->type == FD_STDIN){
+    if(fdes->type == FD_STDIN && pcb->foreground){
         uint64_t read = 0;
         char c;
 
         while (read < count) {
             c = keyboard_read_getchar();
             if (c == 0){
-                break;
+                if (!pcb->foreground) {
+                    break;
+                }
+                _hlt();
+                continue;
             }
 
             buffer[read++] = c;
-            if (c == '\n'){
+            if (c == '\n' || c == EOF_CHAR){
                 break;
             } 
         }
@@ -283,7 +289,17 @@ uint64_t syscall_sem_open(uint64_t name, uint64_t initial_value) {
 }
 
 uint64_t syscall_sem_wait(uint64_t sem_id) {
-    return (uint64_t) sem_wait((int)sem_id);
+    int result = sem_wait((int)sem_id);
+    if (result < 0) {
+        return (uint64_t)result;
+    }
+
+    while (scheduler_current() != NULL &&
+           scheduler_current()->state == PROCESS_BLOCKED) {
+        _hlt();
+    }
+
+    return 0;
 }
 
 uint64_t syscall_sem_post(uint64_t sem_id) {
@@ -308,8 +324,39 @@ uint64_t syscall_pipe_set_fd(uint64_t pid, uint64_t fd, uint64_t pipe_id, uint64
     PCB *pcb = get_process_by_pid((int)pid);
     if (pcb == NULL) return -1;
     if (fd >= MAX_FDS) return -1;
+    if (!pipe_is_open((int)pipe_id)) return -1;
+
+    if(pcb->fds[fd].type == FD_PIPE_READ){
+        pipe_close(pcb->fds[fd].pipe_id, 0);
+    }else if(pcb->fds[fd].type == FD_PIPE_WRITE){
+        pipe_close(pcb->fds[fd].pipe_id, 1);
+    }
 
     pcb->fds[fd].type    = is_write ? FD_PIPE_WRITE : FD_PIPE_READ;
     pcb->fds[fd].pipe_id = (int)pipe_id;
+    return 0;
+}
+
+uint64_t syscall_wait(uint64_t pid) {
+    int result = scheduler_wait((pid_t)pid);
+
+    while (result == SCHEDULER_WAIT_BLOCKED) {
+        while (scheduler_current() != NULL &&
+               scheduler_current()->state == PROCESS_BLOCKED) {
+            _hlt();
+        }
+        result = scheduler_wait((pid_t)pid);
+    }
+
+    return (uint64_t)result;
+}
+
+uint64_t syscall_exit(uint64_t status) {
+    scheduler_exit_current((int)status);
+
+    while (1) {
+        _hlt();
+    }
+
     return 0;
 }

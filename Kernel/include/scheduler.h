@@ -4,6 +4,8 @@
 #include "process.h"
 #include <stdint.h>
 
+#define SCHEDULER_WAIT_BLOCKED -2
+
 // Initializes scheduler
 void scheduler_init(void);
 
@@ -42,5 +44,14 @@ void scheduler_yield(void);
 
 // Returns current process's PCB
 PCB *get_process_by_pid(int pid);
+
+// Blocks current process until the child finishes, or reaps it if already done.
+int scheduler_wait(pid_t pid);
+
+// Marks the current process as finished and wakes any waiter.
+void scheduler_exit_current(int status);
+
+// Kills the foreground process if it is not the shell.
+int scheduler_kill_foreground(void);
 
 #endif

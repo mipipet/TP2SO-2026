@@ -2,11 +2,28 @@
 #include "include/semaphore.h"
 #include "include/scheduler.h"
 #include <lib.h>
+#include <stddef.h>
 
 static Pipe pipe_table[MAX_PIPES];
 
 static int pipe_sem_data[MAX_PIPES]; // counts available bytes
 static int pipe_sem_space[MAX_PIPES]; // counts available space
+
+extern void _hlt(void);
+
+static int wait_sem_blocking(int sem_id) {
+    int result = sem_wait(sem_id);
+    if (result < 0) {
+        return -1;
+    }
+
+    while (scheduler_current() != NULL &&
+           scheduler_current()->state == PROCESS_BLOCKED) {
+        _hlt();
+    }
+
+    return 0;
+}
 
 // Call after pipe_open to initialize pipe's semaphores
 static void pipe_init_sems(int id){
@@ -39,6 +56,24 @@ int pipe_open(void){
     return -1;
 }
 
+int pipe_attach(int pipe_id, int is_write) {
+    if(pipe_id < 0 || pipe_id >= MAX_PIPES || !pipe_table[pipe_id].active){
+        return -1;
+    }
+
+    if(is_write){
+        pipe_table[pipe_id].writers++;
+    }else{
+        pipe_table[pipe_id].readers++;
+    }
+
+    return 0;
+}
+
+int pipe_is_open(int pipe_id) {
+    return pipe_id >= 0 && pipe_id < MAX_PIPES && pipe_table[pipe_id].active;
+}
+
 // Read up to count bytes into buf. Blocks if empty. Returns bytes read or -1
 int pipe_read(int pipe_id, char *buf, int count){
     if(pipe_id < 0 || pipe_id >= MAX_PIPES || !pipe_table[pipe_id].active){
@@ -53,7 +88,13 @@ int pipe_read(int pipe_id, char *buf, int count){
             break; 
         }
 
-        sem_wait(pipe_sem_data[pipe_id]); // blocks until there's something to read
+        if(wait_sem_blocking(pipe_sem_data[pipe_id]) < 0){
+            return -1;
+        }
+
+        if(p->writers == 0 && p->count == 0){ // EOF after wakeup
+            break;
+        }
 
         buf[i] = p->buf[p->read_pos]; 
         p->read_pos = (p->read_pos + 1) % PIPE_BUF_SIZE;
@@ -81,7 +122,13 @@ int pipe_write(int pipe_id, const char *buf, int count){
     int written = 0;
 
     for(int i = 0 ; i < count ; i++){
-        sem_wait(pipe_sem_space[pipe_id]); // blocks until there's space
+        if(wait_sem_blocking(pipe_sem_space[pipe_id]) < 0){
+            return -1;
+        }
+
+        if(p->readers == 0){
+            return written > 0 ? written : -1;
+        }
 
         p->buf[p->write_pos] = buf[i]; 
         p->write_pos = (p->write_pos + 1) % PIPE_BUF_SIZE, 
@@ -103,12 +150,19 @@ int pipe_close(int pipe_id, int is_write){
     Pipe *p = &pipe_table[pipe_id];
 
     if(is_write){
-        p->writers--; 
+        if(p->writers > 0){
+            p->writers--;
+        }
         if(p->writers == 0){
             sem_post(pipe_sem_data[pipe_id]);
         }
     }else{
-        p->readers--; 
+        if(p->readers > 0){
+            p->readers--;
+        }
+        if(p->readers == 0){
+            sem_post(pipe_sem_space[pipe_id]);
+        }
     }
 
     if(p->readers == 0 && p->writers == 0){

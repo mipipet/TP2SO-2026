@@ -51,5 +51,7 @@ void keyboard_interrupt_handler();
 */
 char keyboard_read_getchar();
 
+void keyboard_clear_buffer();
 
-#endif 
+
+#endif

@@ -55,6 +55,8 @@ static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_pipe_open,   
     (SyscallHandler)syscall_pipe_close, 
     (SyscallHandler)syscall_pipe_set_fd, 
+    (SyscallHandler)syscall_wait,
+    (SyscallHandler)syscall_exit,
 };
 
 #define SYSCALLS_COUNT (sizeof(syscallHandlers) / sizeof(syscallHandlers[0]))

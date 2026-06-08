@@ -14,7 +14,10 @@ static int is_valid(int sem_id);
 // Creates or opens a named semaphore with the given initial value. Returns its id or -1 on failure
 int sem_open(const char *name, int initial_value) {
     int id = find_by_name(name);
-    if (id != -1) return id;
+    if (id != -1) {
+        sem_table[id].ref_count++;
+        return id;
+    }
 
     id = find_free_slot();
     if (id == -1) return -1;
@@ -23,6 +26,7 @@ int sem_open(const char *name, int initial_value) {
     sem_table[id].value = initial_value;
     sem_table[id].wait_count = 0;
     sem_table[id].active = 1;
+    sem_table[id].ref_count = 1;
     return id;
 }
 
@@ -51,7 +55,12 @@ int sem_close(int sem_id) {
     if (!is_valid(sem_id))
     return -1;
 
-    sem_table[sem_id].active = 0;
+    sem_table[sem_id].ref_count--;
+    if (sem_table[sem_id].ref_count <= 0) {
+        sem_table[sem_id].active = 0;
+        sem_table[sem_id].wait_count = 0;
+    }
+
     return 0;
 }
 
@@ -80,7 +89,7 @@ static int dequeue(int sem_id) {
     return pid;
 }
 
-// Decrements the semaphore. Blocks the calling process if value is 0
+// Decrements the semaphore. Returns 1 if the caller was blocked.
 int sem_wait(int sem_id){
     if (!is_valid(sem_id)) 
     return -1;
@@ -92,7 +101,7 @@ int sem_wait(int sem_id){
         int pid = scheduler_getpid();
         enqueue(sem_id,pid);
         scheduler_block(pid);
-        return 0;
+        return 1;
     }
 }
 

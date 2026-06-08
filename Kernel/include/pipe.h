@@ -19,6 +19,11 @@ typedef struct {
 // Creates a new pipe, returns its id or -1 on failure
 int pipe_open(void);
 
+// Registers one read or write endpoint for a process FD.
+int pipe_attach(int pipe_id, int is_write);
+
+int pipe_is_open(int pipe_id);
+
 // Read up to count bytes into buf. Blocks if empty. Returns bytes read or -1
 int pipe_read(int pipe_id, char *buf, int count);
 

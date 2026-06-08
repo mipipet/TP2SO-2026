@@ -8,6 +8,7 @@
 #define PROCESS_RUNNING  1
 #define PROCESS_BLOCKED  2
 #define PROCESS_DEAD     3
+#define PROCESS_ZOMBIE   4
 
 // syscall numbers for process management
 #define SYS_CREATE 18
@@ -25,6 +26,8 @@
 #define SYS_PIPE_OPEN 30
 #define SYS_PIPE_CLOSE 31
 #define SYS_PIPE_SET_FD 32
+#define SYS_WAIT 33
+#define SYS_EXIT 34
 
 #define MAX_PROCESSES  64
 #define STACK_SIZE     (4 * 1024)   // 4 KB per process
@@ -57,6 +60,8 @@ typedef struct {
     uint64_t  rsp;              
     uint8_t  *stack_base;      
     int       foreground;       // 1 = owns keyboard
+    int       waiting_for;
+    int       exit_status;
     FileDescriptor fds[MAX_FDS];
 } PCB;
 

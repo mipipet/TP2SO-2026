@@ -5,9 +5,14 @@ section .text
  GLOBAL sys_getpid
  GLOBAL sys_yield
  GLOBAL sys_block
- GLOBAL sys_nice
- GLOBAL sys_ps
- GLOBAL sys_unblock
+	 GLOBAL sys_nice
+	 GLOBAL sys_ps
+	 GLOBAL sys_unblock
+	 GLOBAL sys_pipe_open
+	 GLOBAL sys_pipe_close
+	 GLOBAL sys_pipe_set_fd
+	 GLOBAL sys_wait
+	 GLOBAL sys_exit
 
  sys_create: 
     push rbp
@@ -77,6 +82,52 @@ sys_unblock:
     push rbp
     mov rbp, rsp
     mov rax, 25
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_pipe_open:
+    push rbp
+    mov rbp, rsp
+    mov rax, 30
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_pipe_close:
+    push rbp
+    mov rbp, rsp
+    mov rax, 31
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_pipe_set_fd:
+    push rbp
+    mov rbp, rsp
+    mov r10, rcx
+    mov rax, 32
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_wait:
+    push rbp
+    mov rbp, rsp
+    mov rax, 33
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_exit:
+    push rbp
+    mov rbp, rsp
+    mov rax, 34
     int 0x80
     mov rsp, rbp
     pop rbp

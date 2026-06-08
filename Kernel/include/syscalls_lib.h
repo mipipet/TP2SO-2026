@@ -39,5 +39,7 @@ uint64_t syscall_pipe_open(void);
 uint64_t syscall_pipe_close(uint64_t pipe_id, uint64_t is_write);
 uint64_t syscall_pipe_set_fd(uint64_t pid, uint64_t fd,
                              uint64_t pipe_id, uint64_t is_write);
+uint64_t syscall_wait(uint64_t pid);
+uint64_t syscall_exit(uint64_t status);
 
 #endif

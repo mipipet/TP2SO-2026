@@ -1,5 +1,7 @@
 #include "include/scheduler.h"
 #include "include/process.h"
+#include "include/keyboardDriver.h"
+#include "include/pipe.h"
 #include <memManager.h>
 #include <lib.h>
 #include <stddef.h>
@@ -12,8 +14,17 @@ static uint8_t idle_stack[STACK_SIZE];
 
 extern void _hlt(void);
 
+void scheduler_exit_current(int status);
+
 static void idle_process(void){
     while(1){
+        _hlt();
+    }
+}
+
+static void process_exit_trampoline(void) {
+    scheduler_exit_current(0);
+    while (1) {
         _hlt();
     }
 }
@@ -29,10 +40,12 @@ static void copy_name(char *dst, const char *src) {
 
 static void setup_initial_stack(PCB *pcb, void *entry, int argc, char **argv) {
     uint64_t *sp = (uint64_t *)((uint8_t *)pcb->stack_base + STACK_SIZE);
-    uint64_t stack_top = (uint64_t)sp;
+    uint64_t *return_slot = sp - 1;
+    *return_slot = (uint64_t)process_exit_trampoline;
+    uint64_t initial_rsp = (uint64_t)return_slot;
 
     *(--sp) = 0x00;                    // SS 
-    *(--sp) = stack_top;               // RSP - points to top of stack
+    *(--sp) = initial_rsp;             // RSP - contains the process return address
     *(--sp) = 0x202;                   // RFLAGS - interrupts enabled 
     *(--sp) = 0x08;                    // CS - kernel code segment
     *(--sp) = (uint64_t)entry;         // RIP - entry point
@@ -78,6 +91,43 @@ static int find_next_ready(void) {
     return 0;
 }
 
+static int find_index_by_pid(pid_t pid) {
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].pid == pid && process_table[i].state != PROCESS_DEAD) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static void restore_parent_foreground(PCB *process) {
+    if (!process->foreground) {
+        return;
+    }
+
+    int parent_idx = find_index_by_pid(process->parent_pid);
+    if (parent_idx >= 0 && process_table[parent_idx].state != PROCESS_ZOMBIE) {
+        process_table[parent_idx].foreground = 1;
+        keyboard_clear_buffer();
+    }
+
+    process->foreground = 0;
+}
+
+static void close_process_fds(PCB *process) {
+    for (int fd = 0; fd < MAX_FDS; fd++) {
+        if (process->fds[fd].type == FD_PIPE_READ) {
+            pipe_close(process->fds[fd].pipe_id, 0);
+        } else if (process->fds[fd].type == FD_PIPE_WRITE) {
+            pipe_close(process->fds[fd].pipe_id, 1);
+        }
+
+        process->fds[fd].type = FD_NONE;
+        process->fds[fd].pipe_id = -1;
+    }
+}
+
 void scheduler_init(void) {
     memset(process_table, 0, sizeof(process_table));
 
@@ -93,6 +143,8 @@ void scheduler_init(void) {
     idle->quantums_left = 1; 
     idle->stack_base = idle_stack; 
     idle->foreground = 0; 
+    idle->waiting_for = -1;
+    idle->exit_status = 0;
     copy_name(idle->name, "idle");
 
     setup_initial_stack(idle, idle_process, 0, NULL);
@@ -125,8 +177,14 @@ pid_t scheduler_create(void *entry, const char *name, int priority, int fg, int 
     p->quantums_left = priority; 
     p->stack_base = stack; 
     p->foreground = fg; 
+    p->waiting_for = -1;
+    p->exit_status = 0;
     copy_name(p->name, name);
     setup_initial_stack(p, entry, argc, argv);
+
+    if (fg && current_idx >= 0) {
+        process_table[current_idx].foreground = 0;
+    }
 
     // initialize fds
     p->fds[0].type = FD_STDIN; 
@@ -150,8 +208,16 @@ int scheduler_kill(pid_t pid) {
 
     for (int i = 0; i < MAX_PROCESSES; i++) {
         if(process_table[i].pid == pid && process_table[i].state != PROCESS_DEAD){
+            if (i == current_idx) {
+                scheduler_exit_current(-1);
+                return 0;
+            }
+
+            restore_parent_foreground(&process_table[i]);
+            close_process_fds(&process_table[i]);
             process_table[i].state = PROCESS_DEAD;
             process_table[i].quantums_left = 0;
+            process_table[i].waiting_for = -1;
 
             if(process_table[i].stack_base != idle_stack){
                 mm_free(process_table[i].stack_base);
@@ -160,12 +226,33 @@ int scheduler_kill(pid_t pid) {
 
             process_count--;
 
+            for (int j = 0; j < MAX_PROCESSES; j++) {
+                if (process_table[j].state == PROCESS_BLOCKED &&
+                    process_table[j].waiting_for == pid) {
+                    process_table[j].waiting_for = -1;
+                    process_table[j].state = PROCESS_READY;
+                }
+            }
+
             return 0;
         }
     }
 
     return -1;
 }
+
+int scheduler_kill_foreground(void) {
+    for (int i = 1; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state != PROCESS_DEAD &&
+            process_table[i].foreground &&
+            process_table[i].pid > 1) {
+            return scheduler_kill(process_table[i].pid);
+        }
+    }
+
+    return -1;
+}
+
 void scheduler_block_current(void) {
     if (current_idx < 0) {
         return;
@@ -236,6 +323,89 @@ PCB *get_process_by_pid(int pid) {
         }
     }
     return NULL;
+}
+
+static void reap_process(int idx) {
+    if (idx <= 0 || idx >= MAX_PROCESSES) {
+        return;
+    }
+
+    if (process_table[idx].stack_base != NULL &&
+        process_table[idx].stack_base != idle_stack) {
+        mm_free(process_table[idx].stack_base);
+    }
+
+    process_table[idx].pid = 0;
+    process_table[idx].parent_pid = 0;
+    process_table[idx].state = PROCESS_DEAD;
+    process_table[idx].priority = 0;
+    process_table[idx].quantums_left = 0;
+    process_table[idx].rsp = 0;
+    process_table[idx].stack_base = NULL;
+    process_table[idx].foreground = 0;
+    process_table[idx].waiting_for = -1;
+    process_table[idx].exit_status = 0;
+
+    for (int fd = 0; fd < MAX_FDS; fd++) {
+        process_table[idx].fds[fd].type = FD_NONE;
+        process_table[idx].fds[fd].pipe_id = -1;
+    }
+}
+
+int scheduler_wait(pid_t pid) {
+    PCB *current = scheduler_current();
+    if (current == NULL || pid <= 0) {
+        return -1;
+    }
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].pid == pid && process_table[i].state != PROCESS_DEAD) {
+            if (process_table[i].parent_pid != current->pid) {
+                return -1;
+            }
+
+            if (process_table[i].state == PROCESS_ZOMBIE) {
+                int status = process_table[i].exit_status;
+                reap_process(i);
+                process_count--;
+                return status;
+            }
+
+            current->waiting_for = pid;
+            current->state = PROCESS_BLOCKED;
+            current->quantums_left = 0;
+            return SCHEDULER_WAIT_BLOCKED;
+        }
+    }
+
+    return -1;
+}
+
+void scheduler_exit_current(int status) {
+    if (current_idx <= 0) {
+        return;
+    }
+
+    PCB *current = &process_table[current_idx];
+    int finished_was_foreground = current->foreground;
+
+    current->exit_status = status;
+    restore_parent_foreground(current);
+    close_process_fds(current);
+    current->state = PROCESS_ZOMBIE;
+    current->quantums_left = 0;
+
+    for (int i = 0; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state == PROCESS_BLOCKED &&
+            process_table[i].waiting_for == current->pid) {
+            process_table[i].waiting_for = -1;
+            if (finished_was_foreground) {
+                process_table[i].foreground = 1;
+                keyboard_clear_buffer();
+            }
+            process_table[i].state = PROCESS_READY;
+        }
+    }
 }
 
 uint64_t scheduler_tick(uint64_t current_rsp){

@@ -1,5 +1,8 @@
 #include "keyboardDriver.h"
 #include "keystate.h"
+#include "scheduler.h"
+
+#define EOF_CHAR 0x04
 
 static int buffer_empty();
 static int buffer_full();
@@ -56,6 +59,11 @@ void keyboard_interrupt_handler() {
 
     if (activeCtrl && (cAscii == 'r' || cAscii == 'R')) {
         request_snapshot();
+    } else if (activeCtrl && (cAscii == 'c' || cAscii == 'C')) {
+        scheduler_kill_foreground();
+        keyboard_clear_buffer();
+    } else if (activeCtrl && (cAscii == 'd' || cAscii == 'D')) {
+        buffer_push(EOF_CHAR);
     } else if (cAscii != 0) {
         buffer_push(cAscii);
     }
@@ -110,6 +118,12 @@ static int buffer_empty() {
 
 char keyboard_read_getchar() {
     return buffer_pop();
+}
+
+void keyboard_clear_buffer() {
+    buffer.readIndex = 0;
+    buffer.writeIndex = 0;
+    buffer.size = 0;
 }
 
 static char scToAscii(uint8_t scancode) {

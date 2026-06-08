@@ -12,6 +12,7 @@ typedef struct {
     int  waiting[MAX_WAITING];     // PIDs waiting
     int  wait_count;      // how many are waiting
     int  active;          // 1 = exsist, 0 = free
+    int  ref_count;
 } Semaphore;
 
 int sem_open(const char *name, int initial_value);
