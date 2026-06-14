@@ -5,7 +5,9 @@
 #include "../include/process_syscalls.h"
 
 uint64_t test_sync(uint64_t argc, char *argv[]);
-int test_mm();
+uint64_t test_mm(uint64_t argc, char *argv[]);
+uint64_t test_processes(uint64_t argc, char *argv[]);
+uint64_t test_prio(uint64_t argc, char *argv[]);
 int loop_main(int argc, char **argv);
 int ps_main(int argc, char **argv);
 int kill_main(int argc, char **argv);
@@ -38,7 +40,6 @@ const TShellCmd shellCmds[] = {
     {"font-size", fontSizeCmd, ": Cambia el tamanio de la fuente\n"},
     {"exceptions", exceptionCmd, ": Testear excepciones. Ingrese: exceptions [zero/invalidOpcode] para testear alguna operacion\n"},
     {"regs", regsCmd, ": Muestra los ultimos 18 registros de la CPU\n"},
-    {"test_mm", testMmCmd, ": Testea el memory manager\n"},
     {"loop",  loop_main,  ": Corre un proceso de loop infinito\n"},
     {"ps",    ps_main,    ": Devuelve una lista de todos los procesos activos\n"},
     {"kill",  kill_main,  ": Mata un proceso por PID\n"},
@@ -48,8 +49,11 @@ const TShellCmd shellCmds[] = {
     {"cat", cat_main, ": Imprime stdin tal como lo recibe\n"},
     {"wc", wc_main, ": Cuenta lineas recibidas por stdin\n"},
     {"filter", filter_main, ": Filtra vocales del stdin\n"},
-    {"test_sync", (cmd_fn)test_sync, ": Testea los semaforos \n"},
     {"mem", mem_main, ": Muestra el estado de la memoria\n"},
+    {"test_sync", (cmd_fn)test_sync, ": Testea los semaforos \n"},
+    {"test_mm",   (cmd_fn)test_mm,        ": Testea el memory manager. Uso: test_mm <max_bytes>\n"},
+    {"test_proc", (cmd_fn)test_processes, ": Testea procesos. Uso: test_proc <max_processes>\n"},
+    {"test_prio", (cmd_fn)test_prio,      ": Testea prioridades. Uso: test_prio <max_value>\n"},
     {NULL, NULL, NULL},
 };
 
@@ -176,11 +180,6 @@ int fontSizeCmd(int argc, char *argv[]){
     setFontScale(size);
     clearScreen();
     printf("Tamanio de fuente cambiado a: %d\n", size);
-    return OK;
-}
-
-int testMmCmd(int argc, char *argv[]) {
-    test_mm();
     return OK;
 }
 
