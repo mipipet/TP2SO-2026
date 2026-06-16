@@ -280,6 +280,11 @@ int printf(const char *fmt, ...) {
                     count++;
                     break;
                 }
+                case '%': {
+                    putchar('%');
+                    count++;
+                    break;
+                }
                 case 'l':
                     if (fmt[i+1]=='l' && fmt[i+2]=='x') {
                         unsigned long long v = va_arg(args, unsigned long long);
@@ -361,6 +366,11 @@ int sprintf(char *str, const char *fmt, ...) {
                 case 'c': {
                     char c = (char)va_arg(args, int);
                     str[str_index++] = c;
+                    count++;
+                    break;
+                }
+                case '%': {
+                    str[str_index++] = '%';
                     count++;
                     break;
                 }

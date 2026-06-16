@@ -9,6 +9,8 @@
 
 int64_t global; // shared memory
 
+static uint64_t process_inc_exit(int status);
+
 void slowInc(int64_t *p, int64_t inc) {
   uint64_t aux = *p;
   if (GetUniform(100) < 30)
@@ -24,20 +26,20 @@ uint64_t process_inc(uint64_t argc, char **argv){
   sem_t sem_id = -1;
 
   if (argc != 3)
-    return 0;
+    return process_inc_exit(-1);
 
   if ((n = satoi(argv[0])) <= 0)
-    return 0;
+    return process_inc_exit(-1);
   if ((inc = satoi(argv[1])) == 0)
-    return 0;
+    return process_inc_exit(-1);
   if ((use_sem = satoi(argv[2])) < 0)
-    return 0;
+    return process_inc_exit(-1);
 
   if (use_sem) {
     sem_id = sys_sem_open(SEM_ID, 1);
     if (sem_id == -1) {
       printf("test_sync: ERROR opening semaphore\n");
-      return 0;
+      return process_inc_exit(-1);
     }
   }
 
@@ -52,7 +54,7 @@ uint64_t process_inc(uint64_t argc, char **argv){
   if (use_sem)
     sys_sem_close(sem_id);
 
-  return 0;
+  return process_inc_exit(0);
 }
 
 uint64_t test_sync(uint64_t argc, char *argv[]) {
@@ -76,7 +78,12 @@ uint64_t test_sync(uint64_t argc, char *argv[]) {
     sys_wait(pids[i + TOTAL_PAIR_PROCESSES]);
   }
 
-  printf("Final value: %d\n", global);
+  printf("Final value: %d\n", (int)global);
 
   return 0;
+}
+
+static uint64_t process_inc_exit(int status) {
+  sys_exit(status);
+  return (uint64_t)status;
 }

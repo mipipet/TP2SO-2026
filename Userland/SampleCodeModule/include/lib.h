@@ -14,7 +14,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <math.h> 
 
 typedef struct {
     uint64_t rax, rbx, rcx, rdx, rbp, rdi, rsi, r8, r9, r10, r11, r12, r13, r14, r15, rip, rsp, rflags;
@@ -33,6 +32,7 @@ int atoi(const char *str);
 char *fgets(char *s, int n, int fd);
 void clearScreen();
 int sprintf(char *str, const char *fmt, ...);
+void *memset(void *destination, int32_t c, uint64_t length);
 int try_getchar(char *c);
 void getTime(char *buffer);
 void setFontScale(int scale);

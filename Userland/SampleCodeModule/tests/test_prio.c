@@ -20,6 +20,7 @@ static uint64_t zero_to_max(uint64_t argc, char *argv[]) {
     while (value++ != max_value)
         ;
     printf("PROCESS %d DONE!\n", (int)sys_getpid());
+    sys_exit(0);
     return 0;
 }
 
