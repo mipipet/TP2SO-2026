@@ -183,3 +183,7 @@ void mm_info(uint64_t *total, uint64_t *used, uint64_t *free_bytes){
     *free_bytes = available; 
     *used = heap_size - available; 
 }
+
+int mm_kind(void) {
+    return MM_KIND_BUDDY;
+}

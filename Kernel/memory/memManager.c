@@ -1,7 +1,13 @@
 #include <memManager.h>
-# include <stddef.h>
+#include <stddef.h>
 
 #define MIN_BLOCK_SIZE 8
+
+typedef struct block {
+    uint64_t size;
+    int is_free;
+    struct block *next;
+} block_t;
 
 // Global variables
 static void * heap_start = NULL;
@@ -40,7 +46,7 @@ void * mm_alloc(uint64_t size){
             // Can the block be divided?
             if(current->size >= size + sizeof(block_t) + MIN_BLOCK_SIZE){
 
-                // Create new free block after asigned space
+                // Create a free block after the assigned space
                 block_t * new_block = (block_t *)((char *)(current+1)+size); 
 
                 new_block->size = current->size - size - sizeof(block_t); 
@@ -85,12 +91,12 @@ void mm_free(void *ptr){
     
     block->is_free = 1; 
 
-    // Merge with next block if it is free -> here is the bug
+    // Merge with the next block if it is free
     if(block->next && block->next->is_free){
         block->size += sizeof(block_t) + block->next->size; 
         block->next = block->next->next; 
     }
-    // Marge also if the previous one is free
+    // Merge with the previous block if it is free
     block_t *prev = first_block;
     while (prev->next != NULL && prev->next != block) {
         prev = prev->next;
@@ -118,4 +124,8 @@ void mm_info(uint64_t *total, uint64_t *used, uint64_t *free_bytes){
 
         current = current->next; 
     }
+}
+
+int mm_kind(void) {
+    return MM_KIND_FREE_LIST;
 }

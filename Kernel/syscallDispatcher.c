@@ -21,6 +21,10 @@ uint64_t syscall_mem_info(uint64_t rdi, uint64_t rsi, uint64_t rdx) {
     return 0;
 }
 
+uint64_t syscall_mem_kind(void) {
+    return (uint64_t)mm_kind();
+}
+
 static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_read,   
     (SyscallHandler)syscall_write,  
@@ -57,6 +61,8 @@ static SyscallHandler syscallHandlers[] = {
     (SyscallHandler)syscall_pipe_set_fd, 
     (SyscallHandler)syscall_wait,
     (SyscallHandler)syscall_exit,
+    (SyscallHandler)syscall_pipe_open_capacity,
+    (SyscallHandler)syscall_mem_kind,
 };
 
 #define SYSCALLS_COUNT (sizeof(syscallHandlers) / sizeof(syscallHandlers[0]))

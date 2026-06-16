@@ -18,6 +18,7 @@ GLOBAL sys_screenDims
 GLOBAL sys_mem_alloc
 GLOBAL sys_mem_free
 GLOBAL sys_mem_info
+GLOBAL sys_mem_kind
 
 sys_read:
     push rbp
@@ -177,6 +178,15 @@ sys_mem_info:
     push rbp
     mov rbp, rsp
     mov rax, 17    
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_mem_kind:
+    push rbp
+    mov rbp, rsp
+    mov rax, 36
     int 0x80
     mov rsp, rbp
     pop rbp

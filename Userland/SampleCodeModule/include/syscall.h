@@ -24,5 +24,6 @@ int sys_screenDims(uint64_t *width, uint64_t *height);
 void *sys_mem_alloc(uint64_t size);
 uint64_t sys_mem_free(void *ptr);
 uint64_t sys_mem_info(uint64_t *total, uint64_t *used, uint64_t *free);
+uint64_t sys_mem_kind(void);
 
 #endif

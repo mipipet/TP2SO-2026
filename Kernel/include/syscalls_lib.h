@@ -36,10 +36,12 @@ uint64_t syscall_sem_post(uint64_t sem_id);
 uint64_t syscall_sem_close(uint64_t sem_id);
 
 uint64_t syscall_pipe_open(void);
+uint64_t syscall_pipe_open_capacity(uint64_t capacity);
 uint64_t syscall_pipe_close(uint64_t pipe_id, uint64_t is_write);
 uint64_t syscall_pipe_set_fd(uint64_t pid, uint64_t fd,
                              uint64_t pipe_id, uint64_t is_write);
 uint64_t syscall_wait(uint64_t pid);
 uint64_t syscall_exit(uint64_t status);
+uint64_t syscall_mem_kind(void);
 
 #endif
