@@ -18,6 +18,7 @@ int mem_main(int argc, char **argv);
 int cat_main(int argc, char **argv);
 int wc_main(int argc, char **argv);
 int filter_main(int argc, char **argv);
+int mvar_main(int argc, char **argv);
 extern void _invalidOp();
 
 typedef struct {
@@ -30,6 +31,14 @@ typedef struct {
 static int execute_pipeline(char *commandInput);
 static char *trim_spaces(char *text);
 static int command_exists(const char *name);
+static int is_test_command(const char *name);
+static int test_sync_cmd(int argc, char *argv[]);
+static int test_mm_cmd(int argc, char *argv[]);
+static int test_proc_cmd(int argc, char *argv[]);
+static int test_prio_cmd(int argc, char *argv[]);
+static uint64_t command_process_owned_entry(uint64_t argc, char **argv);
+static char **copy_args(int argc, char **argv);
+static void free_args(int argc, char **argv);
 
 const TShellCmd shellCmds[] = {
     {"help", helpCmd, ": Muestra los comandos disponibles\n"},
@@ -49,13 +58,30 @@ const TShellCmd shellCmds[] = {
     {"cat", cat_main, ": Imprime stdin tal como lo recibe\n"},
     {"wc", wc_main, ": Cuenta lineas recibidas por stdin\n"},
     {"filter", filter_main, ": Filtra vocales del stdin\n"},
+    {"mvar", mvar_main, ": Simula MVar con lectores/escritores. Uso: mvar <escritores> <lectores>\n"},
     {"mem", mem_main, ": Muestra el estado de la memoria\n"},
-    {"test_sync", (cmd_fn)test_sync, ": Testea los semaforos \n"},
-    {"test_mm",   (cmd_fn)test_mm,        ": Testea el memory manager. Uso: test_mm <max_bytes>\n"},
-    {"test_proc", (cmd_fn)test_processes, ": Testea procesos. Uso: test_proc <max_processes>\n"},
-    {"test_prio", (cmd_fn)test_prio,      ": Testea prioridades. Uso: test_prio <max_value>\n"},
+    {"test_sync", test_sync_cmd, ": Testea los semaforos. Uso: test_sync <n> <use_sem>\n"},
+    {"test_mm",   test_mm_cmd,   ": Testea el memory manager. Uso: test_mm <max_bytes>\n"},
+    {"test_proc", test_proc_cmd, ": Testea procesos. Uso: test_proc <max_processes>\n"},
+    {"test_prio", test_prio_cmd, ": Testea prioridades. Uso: test_prio <max_value>\n"},
     {NULL, NULL, NULL},
 };
+
+static int test_sync_cmd(int argc, char *argv[]) {
+    return (int)test_sync((uint64_t)(argc - 1), argv + 1);
+}
+
+static int test_mm_cmd(int argc, char *argv[]) {
+    return (int)test_mm((uint64_t)(argc - 1), argv + 1);
+}
+
+static int test_proc_cmd(int argc, char *argv[]) {
+    return (int)test_processes((uint64_t)(argc - 1), argv + 1);
+}
+
+static int test_prio_cmd(int argc, char *argv[]) {
+    return (int)test_prio((uint64_t)(argc - 1), argv + 1);
+}
 
 static int runs_in_shell(const char *name) {
     return strcmp(name, "help") == 0 ||
@@ -65,7 +91,13 @@ static int runs_in_shell(const char *name) {
            strcmp(name, "time") == 0 ||
            strcmp(name, "font-size") == 0 ||
            strcmp(name, "exceptions") == 0 ||
-           strcmp(name, "regs") == 0;
+           strcmp(name, "regs") == 0 ||
+           strcmp(name, "mvar") == 0 ||
+           strcmp(name, "ps") == 0 ||
+           strcmp(name, "kill") == 0 ||
+           strcmp(name, "nice") == 0 ||
+           strcmp(name, "block") == 0 ||
+           strcmp(name, "unblock") == 0;
 }
 
 static uint64_t command_process_entry(uint64_t argc, char **argv) {
@@ -84,6 +116,23 @@ static uint64_t command_process_entry(uint64_t argc, char **argv) {
 
     sys_exit(ERROR);
     return ERROR;
+}
+
+static uint64_t command_process_owned_entry(uint64_t argc, char **argv) {
+    int status = ERROR;
+
+    if (argc != 0 && argv != NULL && argv[0] != NULL) {
+        for (int i = 0; shellCmds[i].name; i++) {
+            if (strcmp(argv[0], shellCmds[i].name) == 0) {
+                status = shellCmds[i].function((int)argc, argv);
+                break;
+            }
+        }
+    }
+
+    free_args((int)argc, argv);
+    sys_exit(status);
+    return (uint64_t)status;
 }
 
 static uint64_t command_launch_entry(uint64_t unused, char **raw_context) {
@@ -127,8 +176,18 @@ int regsCmd(int argc, char *argv[]) {
 int helpCmd(int argc, char *argv[]){
     printf("%s", "Comandos disponibles:\n");
     for(int i = 1; shellCmds[i].name; i++){
-        printf("%s", shellCmds[i].name);
-        printf("%s", shellCmds[i].help);
+        if (!is_test_command(shellCmds[i].name)) {
+            printf("%s", shellCmds[i].name);
+            printf("%s", shellCmds[i].help);
+        }
+    }
+
+    printf("%s", "\nTests provistos:\n");
+    for(int i = 1; shellCmds[i].name; i++){
+        if (is_test_command(shellCmds[i].name)) {
+            printf("%s", shellCmds[i].name);
+            printf("%s", shellCmds[i].help);
+        }
     }
     return OK;
 }
@@ -211,10 +270,17 @@ int CommandParse(char *commandInput){
                 return shellCmds[i].function(argc, args);
             }
 
-            int pid = sys_create((process_func)command_process_entry,
+            char **process_args = copy_args(argc, args);
+            if (process_args == NULL) {
+                printf("Error: no hay memoria para crear el proceso\n");
+                return CMD_ERROR;
+            }
+
+            int pid = sys_create((process_func)command_process_owned_entry,
                                  shellCmds[i].name, 3, foreground,
-                                 argc, args);
+                                 argc, process_args);
             if (pid < 0) {
+                free_args(argc, process_args);
                 printf("Error: no se pudo crear el proceso\n");
                 return CMD_ERROR;
             }
@@ -331,6 +397,56 @@ static int command_exists(const char *name) {
     }
 
     return 0;
+}
+
+static int is_test_command(const char *name) {
+    return name != NULL &&
+           name[0] == 't' &&
+           name[1] == 'e' &&
+           name[2] == 's' &&
+           name[3] == 't' &&
+           name[4] == '_';
+}
+
+static char **copy_args(int argc, char **argv) {
+    char **copy = (char **)sys_mem_alloc(sizeof(char *) * (argc + 1));
+    if (copy == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i <= argc; i++) {
+        copy[i] = NULL;
+    }
+
+    for (int i = 0; i < argc; i++) {
+        int len = strlen(argv[i]);
+        copy[i] = (char *)sys_mem_alloc((uint64_t)len + 1);
+        if (copy[i] == NULL) {
+            free_args(argc, copy);
+            return NULL;
+        }
+
+        for (int j = 0; j <= len; j++) {
+            copy[i][j] = argv[i][j];
+        }
+    }
+
+    copy[argc] = NULL;
+    return copy;
+}
+
+static void free_args(int argc, char **argv) {
+    if (argv == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < argc; i++) {
+        if (argv[i] != NULL) {
+            sys_mem_free(argv[i]);
+        }
+    }
+
+    sys_mem_free(argv);
 }
 
 int fillCommandAndArgs(char *args[], char *input) {

@@ -9,6 +9,7 @@ section .text
 	 GLOBAL sys_ps
 	 GLOBAL sys_unblock
 	 GLOBAL sys_pipe_open
+	 GLOBAL sys_pipe_open_capacity
 	 GLOBAL sys_pipe_close
 	 GLOBAL sys_pipe_set_fd
 	 GLOBAL sys_wait
@@ -91,6 +92,15 @@ sys_pipe_open:
     push rbp
     mov rbp, rsp
     mov rax, 30
+    int 0x80
+    mov rsp, rbp
+    pop rbp
+    ret
+
+sys_pipe_open_capacity:
+    push rbp
+    mov rbp, rsp
+    mov rax, 35
     int 0x80
     mov rsp, rbp
     pop rbp
