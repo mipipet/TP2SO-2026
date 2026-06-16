@@ -1,8 +1,7 @@
 #ifndef _MODULE_PACKER_H_
 #define _MODULE_PACKER_H_
 
-#include <argp.h>
-
+#include <stdio.h>
 
 #define FALSE 0
 #define TRUE !FALSE
@@ -37,9 +36,5 @@ int write_size(FILE *target, char *filename);
 int write_file(FILE *target, FILE *source);
 
 int checkFiles(array_t fileArray);
-
-static error_t
-parse_opt (int key, char *arg, struct argp_state *state);
-
 
 #endif
