@@ -42,6 +42,9 @@ int scheduler_list(PCB *out_buf, int max);
 // Forces current process to yield
 void scheduler_yield(void);
 
+// Returns non-zero when the syscall handler should switch processes now.
+int scheduler_should_reschedule(void);
+
 // Returns current process's PCB
 PCB *get_process_by_pid(int pid);
 

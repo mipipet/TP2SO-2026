@@ -22,6 +22,7 @@ EXTERN exceptionDispatcher
 EXTERN syscallDispatcher
 EXTERN getStackBase
 EXTERN scheduler_tick
+EXTERN scheduler_should_reschedule
 EXTERN timer_handler
 
 SECTION .text
@@ -125,6 +126,8 @@ _irq00Handler:
 ;Keyboard
 _irq01Handler:
     pushState
+    mov rdi, 1
+    call irqDispatcher
 
     cmp byte [do_snapshot], 1
     jne .no_snapshot
@@ -182,13 +185,12 @@ _irq01Handler:
     mov rax, [rsp + 18*8]  
     mov [snapshot_buffer + 16*8], rax   ; RSP
     mov rax, [rsp + 17*8]  
+    and rax, 0FFFFFFFFFFFEFFFFh
     mov [snapshot_buffer + 17*8], rax   ; RFLAGS
 
     mov byte [do_snapshot], 0
 
 .no_snapshot:
-    mov rdi, 1 
-    call irqDispatcher
 
     mov al, 20h
     out 20h, al
@@ -239,6 +241,16 @@ _irq80Handler:
     add rsp, 8
     mov [rsp + 14*8], rax
 
+    call scheduler_should_reschedule
+    cmp rax, 0
+    je .no_syscall_reschedule
+
+    mov rdi, rsp
+    call scheduler_tick
+    mov rsp, rax
+
+.no_syscall_reschedule:
+
     pop   r15
     pop   r14
     pop   r13
@@ -280,6 +292,7 @@ _irq80Handler:
 	mov rax, [rsp+15*8]                   
 	mov [exception_regs + 8*16], rax
 	mov rax, [rsp+17*8]                    
+	and rax, 0FFFFFFFFFFFEFFFFh
 	mov [exception_regs + 8*17], rax
 
 	mov rdi, %1                            

@@ -2,6 +2,7 @@
 #include "include/process.h"
 #include "include/keyboardDriver.h"
 #include "include/pipe.h"
+#include "include/semaphore.h"
 #include <memManager.h>
 #include <lib.h>
 #include <stddef.h>
@@ -83,7 +84,7 @@ static int find_next_ready(void) {
 
     for (int checked = 0; checked < MAX_PROCESSES; checked++) {
         int idx = (start + checked) % MAX_PROCESSES;
-        if (process_table[idx].state == PROCESS_READY) {
+        if (idx != 0 && process_table[idx].state == PROCESS_READY) {
             return idx;
         }
     }
@@ -99,6 +100,21 @@ static int find_index_by_pid(pid_t pid) {
     }
 
     return -1;
+}
+
+static void ensure_foreground_owner(void) {
+    for (int i = 1; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state != PROCESS_DEAD &&
+            process_table[i].state != PROCESS_ZOMBIE &&
+            process_table[i].foreground) {
+            return;
+        }
+    }
+
+    int shell_idx = find_index_by_pid(1);
+    if (shell_idx >= 0 && process_table[shell_idx].state != PROCESS_ZOMBIE) {
+        process_table[shell_idx].foreground = 1;
+    }
 }
 
 static void restore_parent_foreground(PCB *process) {
@@ -202,7 +218,7 @@ pid_t scheduler_create(void *entry, const char *name, int priority, int fg, int 
 }
 
 int scheduler_kill(pid_t pid) {
-    if (pid == 0) {
+    if (pid <= 1) {
         return -1; 
     }
 
@@ -214,6 +230,7 @@ int scheduler_kill(pid_t pid) {
             }
 
             restore_parent_foreground(&process_table[i]);
+            sem_remove_waiting_pid(pid);
             close_process_fds(&process_table[i]);
             process_table[i].state = PROCESS_DEAD;
             process_table[i].quantums_left = 0;
@@ -231,9 +248,13 @@ int scheduler_kill(pid_t pid) {
                     process_table[j].waiting_for == pid) {
                     process_table[j].waiting_for = -1;
                     process_table[j].state = PROCESS_READY;
+                    if (process_table[j].quantums_left <= 0) {
+                        process_table[j].quantums_left = process_table[j].priority;
+                    }
                 }
             }
 
+            ensure_foreground_owner();
             return 0;
         }
     }
@@ -276,6 +297,9 @@ void scheduler_unblock(pid_t pid){
     for(int i = 0 ; i < MAX_PROCESSES ; i++){
         if(process_table[i].pid == pid && process_table[i].state == PROCESS_BLOCKED){
             process_table[i].state = PROCESS_READY;
+            if (process_table[i].quantums_left <= 0) {
+                process_table[i].quantums_left = process_table[i].priority;
+            }
             return;
         }
     }
@@ -404,8 +428,13 @@ void scheduler_exit_current(int status) {
                 keyboard_clear_buffer();
             }
             process_table[i].state = PROCESS_READY;
+            if (process_table[i].quantums_left <= 0) {
+                process_table[i].quantums_left = process_table[i].priority;
+            }
         }
     }
+
+    ensure_foreground_owner();
 }
 
 uint64_t scheduler_tick(uint64_t current_rsp){
@@ -447,4 +476,13 @@ void scheduler_yield(void){
         return;
     }
     process_table[current_idx].quantums_left = 0;
+}
+
+int scheduler_should_reschedule(void) {
+    if (current_idx < 0) {
+        return 0;
+    }
+
+    PCB *current = &process_table[current_idx];
+    return current->state != PROCESS_RUNNING || current->quantums_left <= 0;
 }

@@ -11,6 +11,7 @@ typedef struct {
     int      read_pos;
     int      write_pos;
     int      count;           // bytes currently in buffer
+    int      capacity;
     int      active;
     int      readers;         // number of open read ends
     int      writers;         // number of open write ends
@@ -18,6 +19,7 @@ typedef struct {
 
 // Creates a new pipe, returns its id or -1 on failure
 int pipe_open(void);
+int pipe_open_with_capacity(int capacity);
 
 // Registers one read or write endpoint for a process FD.
 int pipe_attach(int pipe_id, int is_write);

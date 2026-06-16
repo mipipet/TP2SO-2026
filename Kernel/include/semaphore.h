@@ -18,6 +18,8 @@ typedef struct {
 int sem_open(const char *name, int initial_value);
 int sem_wait(int sem_id);
 int sem_post(int sem_id);
+int sem_post_all(int sem_id);
 int sem_close(int sem_id);
+void sem_remove_waiting_pid(int pid);
 
 #endif

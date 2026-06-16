@@ -17,6 +17,8 @@
 #define STDIN 0
 #define STDOUT 1
 
+static PCB ps_table[MAX_PROCESSES];
+
 extern uint64_t * _getSnapshot();
 
 static void append_char(char **out, int *rem, int *written, char c) {
@@ -248,27 +250,26 @@ uint64_t syscall_nice(uint64_t pid, uint64_t new_priority) {
 }
 
 uint64_t syscall_ps(uint64_t buf, uint64_t max_len) {
-    PCB table[MAX_PROCESSES];
-    int count = scheduler_list(table, MAX_PROCESSES);
+    int count = scheduler_list(ps_table, MAX_PROCESSES);
 
     char *out = (char *)buf;
     int written = 0;
     int rem = (int)max_len;
 
     for (int i = 0; i < count && rem > 1; i++) {
-        append_str(&out, &rem, &written, table[i].name);
+        append_str(&out, &rem, &written, ps_table[i].name);
         append_str(&out, &rem, &written, " PID=");
-        append_int(&out, &rem, &written, table[i].pid);
+        append_int(&out, &rem, &written, ps_table[i].pid);
         append_str(&out, &rem, &written, " PRI=");
-        append_int(&out, &rem, &written, table[i].priority);
+        append_int(&out, &rem, &written, ps_table[i].priority);
         append_str(&out, &rem, &written, " FG=");
-        append_int(&out, &rem, &written, table[i].foreground);
+        append_int(&out, &rem, &written, ps_table[i].foreground);
         append_str(&out, &rem, &written, " RSP=0x");
-        append_uint(&out, &rem, &written, table[i].rsp, 16);
+        append_uint(&out, &rem, &written, ps_table[i].rsp, 16);
         append_str(&out, &rem, &written, " BASE=0x");
-        append_uint(&out, &rem, &written, (uint64_t)table[i].stack_base, 16);
+        append_uint(&out, &rem, &written, (uint64_t)ps_table[i].stack_base, 16);
         append_str(&out, &rem, &written, " STATE=");
-        append_int(&out, &rem, &written, table[i].state);
+        append_int(&out, &rem, &written, ps_table[i].state);
         append_char(&out, &rem, &written, '\n');
     }
     if (rem > 0) {
@@ -285,28 +286,27 @@ uint64_t syscall_unblock(uint64_t pid) {
 // SEMAPHORES
 
 uint64_t syscall_sem_open(uint64_t name, uint64_t initial_value) {
+    _cli();
     return (uint64_t) sem_open((const char *)name, (int)initial_value);
 }
 
 uint64_t syscall_sem_wait(uint64_t sem_id) {
+    _cli();
     int result = sem_wait((int)sem_id);
     if (result < 0) {
         return (uint64_t)result;
-    }
-
-    while (scheduler_current() != NULL &&
-           scheduler_current()->state == PROCESS_BLOCKED) {
-        _hlt();
     }
 
     return 0;
 }
 
 uint64_t syscall_sem_post(uint64_t sem_id) {
+    _cli();
     return (uint64_t) sem_post((int)sem_id);
 }
 
 uint64_t syscall_sem_close(uint64_t sem_id) {
+    _cli();
     return (uint64_t) sem_close((int)sem_id);
 }
 
@@ -314,6 +314,10 @@ uint64_t syscall_sem_close(uint64_t sem_id) {
 
 uint64_t syscall_pipe_open(void) {
     return pipe_open();
+}
+
+uint64_t syscall_pipe_open_capacity(uint64_t capacity) {
+    return pipe_open_with_capacity((int)capacity);
 }
 
 uint64_t syscall_pipe_close(uint64_t pipe_id, uint64_t is_write) {
@@ -325,6 +329,8 @@ uint64_t syscall_pipe_set_fd(uint64_t pid, uint64_t fd, uint64_t pipe_id, uint64
     if (pcb == NULL) return -1;
     if (fd >= MAX_FDS) return -1;
     if (!pipe_is_open((int)pipe_id)) return -1;
+
+    if (pipe_attach((int)pipe_id, (int)is_write) < 0) return -1;
 
     if(pcb->fds[fd].type == FD_PIPE_READ){
         pipe_close(pcb->fds[fd].pipe_id, 0);
@@ -353,10 +359,5 @@ uint64_t syscall_wait(uint64_t pid) {
 
 uint64_t syscall_exit(uint64_t status) {
     scheduler_exit_current((int)status);
-
-    while (1) {
-        _hlt();
-    }
-
     return 0;
 }

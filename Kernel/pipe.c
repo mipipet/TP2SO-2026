@@ -1,6 +1,7 @@
 #include "include/pipe.h"
 #include "include/semaphore.h"
 #include "include/scheduler.h"
+#include "include/interrupts.h"
 #include <lib.h>
 #include <stddef.h>
 
@@ -8,20 +9,24 @@ static Pipe pipe_table[MAX_PIPES];
 
 static int pipe_sem_data[MAX_PIPES]; // counts available bytes
 static int pipe_sem_space[MAX_PIPES]; // counts available space
-
-extern void _hlt(void);
+static int pipe_reserved_readers[MAX_PIPES];
+static int pipe_reserved_writers[MAX_PIPES];
 
 static int wait_sem_blocking(int sem_id) {
+    _cli();
     int result = sem_wait(sem_id);
     if (result < 0) {
+        _sti();
         return -1;
     }
 
-    while (scheduler_current() != NULL &&
+    while (result > 0 &&
+           scheduler_current() != NULL &&
            scheduler_current()->state == PROCESS_BLOCKED) {
         _hlt();
     }
 
+    _cli();
     return 0;
 }
 
@@ -33,20 +38,31 @@ static void pipe_init_sems(int id){
     pipe_sem_data[id]  = sem_open(name, 0);
 
     name[0] = 's';
-    pipe_sem_space[id] = sem_open(name, PIPE_BUF_SIZE);
+    pipe_sem_space[id] = sem_open(name, 0);
 }
 
 // Creates a new pipe, returns its id or -1 on failure
 int pipe_open(void){
+    return pipe_open_with_capacity(PIPE_BUF_SIZE);
+}
+
+int pipe_open_with_capacity(int capacity){
+    if(capacity <= 0 || capacity > PIPE_BUF_SIZE){
+        return -1;
+    }
+
     for(int i = 0 ; i < MAX_PIPES ; i++){
         if(!pipe_table[i].active){   
 
             pipe_table[i].read_pos = 0;
             pipe_table[i].write_pos = 0;
             pipe_table[i].count = 0;
+            pipe_table[i].capacity = capacity;
             pipe_table[i].readers = 1;
             pipe_table[i].writers = 1;
             pipe_table[i].active = 1;
+            pipe_reserved_readers[i] = 1;
+            pipe_reserved_writers[i] = 1;
             pipe_init_sems(i);
 
             return i;
@@ -61,10 +77,20 @@ int pipe_attach(int pipe_id, int is_write) {
         return -1;
     }
 
+    Pipe *p = &pipe_table[pipe_id];
+
     if(is_write){
-        pipe_table[pipe_id].writers++;
+        if(pipe_reserved_writers[pipe_id] > 0){
+            pipe_reserved_writers[pipe_id]--;
+        }else{
+            p->writers++;
+        }
     }else{
-        pipe_table[pipe_id].readers++;
+        if(pipe_reserved_readers[pipe_id] > 0){
+            pipe_reserved_readers[pipe_id]--;
+        }else{
+            p->readers++;
+        }
     }
 
     return 0;
@@ -84,24 +110,27 @@ int pipe_read(int pipe_id, char *buf, int count){
     int read = 0; 
 
     for(int i = 0 ; i < count ; i++){
-        if(p->writers == 0 && p->count == 0){ // EOF
-            break; 
+        _cli();
+
+        while(p->writers > 0 && p->count == 0){
+            if(wait_sem_blocking(pipe_sem_data[pipe_id]) < 0){
+                _sti();
+                return read > 0 ? read : -1;
+            }
         }
 
-        if(wait_sem_blocking(pipe_sem_data[pipe_id]) < 0){
-            return -1;
-        }
-
-        if(p->writers == 0 && p->count == 0){ // EOF after wakeup
+        if(p->count == 0){
+            _sti();
             break;
         }
 
         buf[i] = p->buf[p->read_pos]; 
-        p->read_pos = (p->read_pos + 1) % PIPE_BUF_SIZE;
+        p->read_pos = (p->read_pos + 1) % p->capacity;
         p->count--; 
         read++; 
 
         sem_post(pipe_sem_space[pipe_id]);
+        _sti();
     }
 
     return read; 
@@ -115,27 +144,30 @@ int pipe_write(int pipe_id, const char *buf, int count){
 
     Pipe *p = &pipe_table[pipe_id];
 
-    if(p->readers == 0){
-        return -1; 
-    }
-
     int written = 0;
 
     for(int i = 0 ; i < count ; i++){
-        if(wait_sem_blocking(pipe_sem_space[pipe_id]) < 0){
-            return -1;
+        _cli();
+
+        while(p->readers > 0 && p->count >= p->capacity){
+            if(wait_sem_blocking(pipe_sem_space[pipe_id]) < 0){
+                _sti();
+                return written > 0 ? written : -1;
+            }
         }
 
         if(p->readers == 0){
+            _sti();
             return written > 0 ? written : -1;
         }
 
-        p->buf[p->write_pos] = buf[i]; 
-        p->write_pos = (p->write_pos + 1) % PIPE_BUF_SIZE, 
-        p->count++; 
+        p->buf[p->write_pos] = buf[i];
+        p->write_pos = (p->write_pos + 1) % p->capacity;
+        p->count++;
         written++;
 
-        sem_post(pipe_sem_data[pipe_id]); 
+        sem_post(pipe_sem_data[pipe_id]);
+        _sti();
     }
 
     return written; 
@@ -147,29 +179,43 @@ int pipe_close(int pipe_id, int is_write){
         return -1; 
     }
 
+    _cli();
     Pipe *p = &pipe_table[pipe_id];
 
     if(is_write){
         if(p->writers > 0){
             p->writers--;
         }
+        if(pipe_reserved_writers[pipe_id] > 0){
+            pipe_reserved_writers[pipe_id]--;
+        }
         if(p->writers == 0){
-            sem_post(pipe_sem_data[pipe_id]);
+            sem_post_all(pipe_sem_data[pipe_id]);
+        }else if(p->count < p->capacity){
+            sem_post(pipe_sem_space[pipe_id]);
         }
     }else{
         if(p->readers > 0){
             p->readers--;
         }
+        if(pipe_reserved_readers[pipe_id] > 0){
+            pipe_reserved_readers[pipe_id]--;
+        }
         if(p->readers == 0){
-            sem_post(pipe_sem_space[pipe_id]);
+            sem_post_all(pipe_sem_space[pipe_id]);
+        }else if(p->count > 0){
+            sem_post(pipe_sem_data[pipe_id]);
         }
     }
 
     if(p->readers == 0 && p->writers == 0){
         p->active = 0; 
+        pipe_reserved_readers[pipe_id] = 0;
+        pipe_reserved_writers[pipe_id] = 0;
         sem_close(pipe_sem_data[pipe_id]);
         sem_close(pipe_sem_space[pipe_id]);
     }
 
+    _sti();
     return 0; 
 }

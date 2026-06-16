@@ -28,6 +28,8 @@
 #define SYS_PIPE_SET_FD 32
 #define SYS_WAIT 33
 #define SYS_EXIT 34
+#define SYS_PIPE_OPEN_CAPACITY 35
+#define SYS_MEM_KIND 36
 
 #define MAX_PROCESSES  64
 #define STACK_SIZE     (4 * 1024)   // 4 KB per process
