@@ -61,7 +61,7 @@ void readLine(char *buf, int maxLen) {
 }
 
 static void shellPrompt(){
-    printf("%s", "TP-ARQUI-");
+    printf("%s", "TP-SO-");
     printf("%s", shellUser);
     printf("%s", ":~$ ");
 }
