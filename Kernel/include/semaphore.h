@@ -10,6 +10,7 @@ typedef struct {
     char name[NAME_LEN];       
     int  value;           //counter
     int  waiting[MAX_WAITING];     // PIDs waiting
+    int  waiting_credit[MAX_WAITING];
     int  wait_count;      // how many are waiting
     int  active;          // 1 = exsist, 0 = free
     int  ref_count;

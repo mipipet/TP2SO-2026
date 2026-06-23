@@ -8,11 +8,12 @@
 static Semaphore sem_table[MAX_SEMAPHORES];
 static int find_by_name(const char *name);
 static int find_free_slot();
-static int dequeue(int sem_id);
+static int dequeue_at(int sem_id, int index);
 static int enqueue(int sem_id, int pid);
 static int is_valid(int sem_id);
 static int remove_waiting_pid_from_sem(int sem_id, int pid);
 static int unblock_one_waiter(int sem_id);
+static void age_waiters_except(int sem_id, int selected_idx);
 
 // Creates or opens a named semaphore with the given initial value. Returns its id or -1 on failure
 int sem_open(const char *name, int initial_value) {
@@ -97,11 +98,12 @@ int sem_post_all(int sem_id){
     return 0;
 }
 
-// Removes and returns the first PID from the waiting queue
-static int dequeue(int sem_id) {
-    int pid = sem_table[sem_id].waiting[0];
-    for (int i = 0; i < sem_table[sem_id].wait_count - 1; i++) {
+// Removes and returns one PID from the waiting queue.
+static int dequeue_at(int sem_id, int index) {
+    int pid = sem_table[sem_id].waiting[index];
+    for (int i = index; i < sem_table[sem_id].wait_count - 1; i++) {
         sem_table[sem_id].waiting[i] = sem_table[sem_id].waiting[i + 1];
+        sem_table[sem_id].waiting_credit[i] = sem_table[sem_id].waiting_credit[i + 1];
     }
     sem_table[sem_id].wait_count--;
     return pid;
@@ -134,21 +136,49 @@ static int enqueue(int sem_id, int pid) {
     if(sem_table[sem_id].wait_count >= MAX_WAITING){
         return -1;
     }
-    sem_table[sem_id].waiting[sem_table[sem_id].wait_count++] = pid;
+    sem_table[sem_id].waiting[sem_table[sem_id].wait_count] = pid;
+    sem_table[sem_id].waiting_credit[sem_table[sem_id].wait_count] = 0;
+    sem_table[sem_id].wait_count++;
     return 0;
 }
 
 static int unblock_one_waiter(int sem_id) {
     while(sem_table[sem_id].wait_count > 0){
-        int pid = dequeue(sem_id);
-        PCB *process = get_process_by_pid(pid);
-        if(process != NULL && process->state == PROCESS_BLOCKED){
+        int best_idx = -1;
+        int best_score = -1;
+
+        for(int i = 0; i < sem_table[sem_id].wait_count; i++){
+            PCB *process = get_process_by_pid(sem_table[sem_id].waiting[i]);
+            int score;
+            if(process != NULL && process->state == PROCESS_BLOCKED &&
+               (score = process->priority + sem_table[sem_id].waiting_credit[i]) > best_score){
+                best_idx = i;
+                best_score = score;
+            }
+        }
+
+        if(best_idx < 0){
+            dequeue_at(sem_id, 0);
+            continue;
+        }
+
+        age_waiters_except(sem_id, best_idx);
+        int pid = dequeue_at(sem_id, best_idx);
+        if(get_process_by_pid(pid) != NULL){
             scheduler_unblock(pid);
             return 1;
         }
     }
 
     return 0;
+}
+
+static void age_waiters_except(int sem_id, int selected_idx) {
+    for(int i = 0; i < sem_table[sem_id].wait_count; i++){
+        if(i != selected_idx && sem_table[sem_id].waiting_credit[i] < 5){
+            sem_table[sem_id].waiting_credit[i]++;
+        }
+    }
 }
 
 void sem_remove_waiting_pid(int pid) {
@@ -166,7 +196,9 @@ static int remove_waiting_pid_from_sem(int sem_id, int pid) {
 
     for (int read_idx = 0; read_idx < sem_table[sem_id].wait_count; read_idx++) {
         if (sem_table[sem_id].waiting[read_idx] != pid) {
-            sem_table[sem_id].waiting[write_idx++] = sem_table[sem_id].waiting[read_idx];
+            sem_table[sem_id].waiting[write_idx] = sem_table[sem_id].waiting[read_idx];
+            sem_table[sem_id].waiting_credit[write_idx] = sem_table[sem_id].waiting_credit[read_idx];
+            write_idx++;
         }else{
             removed++;
         }
