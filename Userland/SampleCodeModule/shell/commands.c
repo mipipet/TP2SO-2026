@@ -6,6 +6,8 @@
 #include "commands_internal.h"
 
 static uint64_t command_process_owned_entry(uint64_t argc, char **argv);
+static int command_args_are_valid(const TShellCmd *command, int argc, char **argv);
+static int is_positive_number(const char *text);
 
 int CommandParse(char *commandInput) {
     if (commandInput == NULL)
@@ -38,6 +40,10 @@ int CommandParse(char *commandInput) {
         return command->function(argc, args);
     }
 
+    if (!command_args_are_valid(command, argc, args)) {
+        return CMD_ERROR;
+    }
+
     char **process_args = copy_args(argc, args);
     if (process_args == NULL) {
         printf("Error: no hay memoria para crear el proceso\n");
@@ -60,6 +66,51 @@ int CommandParse(char *commandInput) {
     }
 
     return OK;
+}
+
+static int command_args_are_valid(const TShellCmd *command, int argc, char **argv) {
+    if (command == NULL || !command_is_test(command)) {
+        return 1;
+    }
+
+    if (strcmp(command->name, "test_mm") == 0) {
+        if (argc != 2 || !is_positive_number(argv[1])) {
+            printf("Usage: test_mm <max_memory_bytes>\n");
+            return 0;
+        }
+    } else if (strcmp(command->name, "test_proc") == 0) {
+        if (argc != 2 || !is_positive_number(argv[1])) {
+            printf("Usage: test_proc <max_processes>\n");
+            return 0;
+        }
+    } else if (strcmp(command->name, "test_prio") == 0) {
+        if (argc != 2 || !is_positive_number(argv[1])) {
+            printf("Usage: test_prio <max_value>\n");
+            return 0;
+        }
+    } else if (strcmp(command->name, "test_sync") == 0) {
+        if (argc != 3 || !is_positive_number(argv[1]) ||
+            !(strcmp(argv[2], "0") == 0 || strcmp(argv[2], "1") == 0)) {
+            printf("Usage: test_sync <n> <use_sem>\n");
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+static int is_positive_number(const char *text) {
+    if (text == NULL || text[0] == '\0' || text[0] == '0') {
+        return 0;
+    }
+
+    for (int i = 0; text[i] != '\0'; i++) {
+        if (text[i] < '0' || text[i] > '9') {
+            return 0;
+        }
+    }
+
+    return 1;
 }
 
 static uint64_t command_process_owned_entry(uint64_t argc, char **argv) {
