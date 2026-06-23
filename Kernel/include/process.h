@@ -10,6 +10,9 @@
 #define PROCESS_DEAD     3
 #define PROCESS_ZOMBIE   4
 
+#define PROCESS_PRIORITY_MIN 1
+#define PROCESS_PRIORITY_MAX 5
+
 // syscall numbers for process management
 #define SYS_CREATE 18
 #define SYS_KILL 19
@@ -57,8 +60,12 @@ typedef struct {
     int       parent_pid;       
     char      name[32];
     int       state;            
-    int       priority;         
+    int       priority;
+    int       effective_priority;
     int       quantums_left;    // countdown per turn
+    int       ready_next;
+    int       in_ready_queue;
+    int       ready_wait_ticks;
     uint64_t  rsp;              
     uint8_t  *stack_base;      
     int       foreground;       // 1 = owns keyboard
